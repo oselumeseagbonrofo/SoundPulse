@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://soundpulse/contracts/v1/export_manifest.schema.json",
+  "title": "SoundPulse Export Manifest",
+  "type": "object",
+  "required": [
+    "version",
+    "artifact_version",
+    "backbones",
+    "contracts_version",
+    "created_at_utc"
+  ],
+  "properties": {
+    "version": {
+      "type": "string"
+    },
+    "artifact_version": {
+      "type": "string"
+    },
+    "contracts_version": {
+      "type": "string"
+    },
+    "created_at_utc": {
+      "type": "string"
+    },
+    "backbones": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "model_path", "embedding_dim", "sha256"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "enum": ["tiny_cnn", "yamnet"]
+          },
+          "model_path": {
+            "type": "string"
+          },
+          "embedding_dim": {
+            "type": "integer"
+          },
+          "sha256": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "benchmarks": {
+      "type": "object"
+    }
+  }
+}

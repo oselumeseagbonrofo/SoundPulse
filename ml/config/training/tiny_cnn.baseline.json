@@ -1,0 +1,20 @@
+{
+  "version": "1.0.0",
+  "model": {
+    "name": "tiny_cnn",
+    "embedding_dim": 128,
+    "num_classes": 10,
+    "dropout": 0.2
+  },
+  "training": {
+    "batch_size": 32,
+    "epochs": 40,
+    "learning_rate": 0.001,
+    "optimizer": "adam"
+  },
+  "augmentation": {
+    "time_shift_ms": 120,
+    "gain_db": 3.0,
+    "background_mix_alpha": 0.3
+  }
+}

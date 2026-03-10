@@ -1,0 +1,5 @@
+Metadata-Version: 2.4
+Name: soundpulse-ml
+Version: 0.1.0
+Summary: ML workspace for the SoundPulse offline environmental sound recognition system
+Requires-Python: >=3.11

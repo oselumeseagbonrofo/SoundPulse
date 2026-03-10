@@ -1,0 +1,33 @@
+.DS_Store
+.dart_tool/
+.idea/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.swp
+*.swo
+
+# Python environments and build outputs
+env/
+venv/
+ml/.venv/
+ml/.pytest_cache/
+ml/.mypy_cache/
+ml/build/
+ml/dist/
+ml/*.egg-info/
+
+# Local datasets and generated artifacts
+ml/data/raw/
+ml/data/processed/
+ml/export/artifacts/generated/
+tooling/evaluation/results/
+
+# Flutter and Android build outputs
+build/
+android/.gradle/
+android/app/build/
+
+#data

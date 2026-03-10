@@ -1,0 +1,18 @@
+{
+  "version": "1.0.0",
+  "enabled": true,
+  "chains": [
+    {
+      "trigger": "door_knock",
+      "expected_follow_ups": ["speech"],
+      "window_ms": 15000,
+      "distance_threshold_delta": -0.05
+    },
+    {
+      "trigger": "doorbell",
+      "expected_follow_ups": ["speech", "dog_barking"],
+      "window_ms": 15000,
+      "distance_threshold_delta": -0.08
+    }
+  ]
+}

@@ -1,0 +1,76 @@
+{
+  "version": "1.0.0",
+  "classes": [
+    {
+      "id": 0,
+      "slug": "fire_alarm",
+      "display_name": "fire alarm",
+      "urgent": true,
+      "user_personalizable": false
+    },
+    {
+      "id": 1,
+      "slug": "clock_alarm",
+      "display_name": "clock alarm",
+      "urgent": true,
+      "user_personalizable": false
+    },
+    {
+      "id": 2,
+      "slug": "door_knock",
+      "display_name": "door knock",
+      "urgent": true,
+      "user_personalizable": false
+    },
+    {
+      "id": 3,
+      "slug": "doorbell",
+      "display_name": "doorbell",
+      "urgent": true,
+      "user_personalizable": false
+    },
+    {
+      "id": 4,
+      "slug": "crying_baby",
+      "display_name": "crying baby",
+      "urgent": true,
+      "user_personalizable": true
+    },
+    {
+      "id": 5,
+      "slug": "water_running",
+      "display_name": "water running",
+      "urgent": false,
+      "user_personalizable": true
+    },
+    {
+      "id": 6,
+      "slug": "dog_barking",
+      "display_name": "dog barking",
+      "urgent": false,
+      "user_personalizable": true
+    },
+    {
+      "id": 7,
+      "slug": "door_wood_creaking",
+      "display_name": "door wood creaking",
+      "urgent": false,
+      "user_personalizable": true
+    },
+    {
+      "id": 8,
+      "slug": "speech",
+      "display_name": "speech",
+      "urgent": false,
+      "user_personalizable": false
+    },
+    {
+      "id": 9,
+      "slug": "background",
+      "display_name": "background",
+      "urgent": false,
+      "user_personalizable": true,
+      "suppressed": true
+    }
+  ]
+}

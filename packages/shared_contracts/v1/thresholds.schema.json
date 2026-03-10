@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://soundpulse/contracts/v1/thresholds.schema.json",
+  "title": "SoundPulse Threshold Defaults",
+  "type": "object",
+  "required": [
+    "version",
+    "distance_threshold",
+    "loudness_floor_dbfs",
+    "unknown_ratio_threshold",
+    "confidence_tiers",
+    "modes"
+  ],
+  "properties": {
+    "version": {
+      "type": "string"
+    },
+    "distance_threshold": {
+      "type": "number"
+    },
+    "loudness_floor_dbfs": {
+      "type": "number"
+    },
+    "unknown_ratio_threshold": {
+      "type": "number"
+    },
+    "confidence_tiers": {
+      "type": "object",
+      "required": ["high", "medium", "low"],
+      "properties": {
+        "high": {
+          "type": "number"
+        },
+        "medium": {
+          "type": "number"
+        },
+        "low": {
+          "type": "number"
+        }
+      }
+    },
+    "modes": {
+      "type": "object",
+      "required": ["general", "focus", "sleep"]
+    }
+  }
+}

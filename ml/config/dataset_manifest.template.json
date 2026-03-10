@@ -1,0 +1,47 @@
+{
+  "version": "1.0.0",
+  "description": "Template manifest for curated SoundPulse datasets. Populate with clip metadata after ingestion.",
+  "classes_version": "1.0.0",
+  "datasets": [
+    {
+      "name": "esc50",
+      "source": "ESC-50",
+      "clips": [
+        {
+          "clip_id": "esc50-fire-alarm-0001",
+          "class_slug": "fire_alarm",
+          "relative_path": "esc50/audio/fire_alarm_0001.wav",
+          "split": "train",
+          "duration_ms": 5000,
+          "sample_rate_hz": 16000,
+          "source_group_id": "esc50-source-fire-alarm-0001"
+        }
+      ]
+    },
+    {
+      "name": "fsd50k_subset",
+      "source": "FSD50K",
+      "clips": []
+    },
+    {
+      "name": "audioset_subset",
+      "source": "AudioSet",
+      "clips": []
+    },
+    {
+      "name": "nigeria_background",
+      "source": "Local ambient recordings",
+      "clips": [
+        {
+          "clip_id": "nigeria-background-generator-0001",
+          "class_slug": "background",
+          "relative_path": "nigeria_background/audio/generator_0001.wav",
+          "split": "train",
+          "duration_ms": 12000,
+          "sample_rate_hz": 16000,
+          "source_group_id": "nigeria-background-generator-session-a"
+        }
+      ]
+    }
+  ]
+}

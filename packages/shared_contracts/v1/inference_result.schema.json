@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://soundpulse/contracts/v1/inference_result.schema.json",
+  "title": "SoundPulse Inference Result",
+  "type": "object",
+  "required": [
+    "label",
+    "distance",
+    "confidence",
+    "confidence_tier",
+    "top_candidates",
+    "flags"
+  ],
+  "properties": {
+    "label": {
+      "type": "string"
+    },
+    "distance": {
+      "type": "number"
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "confidence_tier": {
+      "type": "string",
+      "enum": ["high", "medium", "low"]
+    },
+    "top_candidates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["label", "distance", "confidence"],
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "distance": {
+            "type": "number"
+          },
+          "confidence": {
+            "type": "number"
+          }
+        }
+      }
+    },
+    "flags": {
+      "type": "object",
+      "required": ["is_unknown", "is_background", "speech_pitch_required"],
+      "properties": {
+        "is_unknown": {
+          "type": "boolean"
+        },
+        "is_background": {
+          "type": "boolean"
+        },
+        "speech_pitch_required": {
+          "type": "boolean"
+        }
+      }
+    },
+    "speech_pitch": {
+      "type": ["object", "null"],
+      "properties": {
+        "f0_hz": {
+          "type": "number"
+        },
+        "bucket": {
+          "type": "string",
+          "enum": ["male_like", "female_like", "unknown"]
+        }
+      }
+    }
+  }
+}
