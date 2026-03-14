@@ -1,9 +1,9 @@
 {
-  "generated_at_utc": "2026-03-14T21:38:44.136948+00:00",
+  "generated_at_utc": "2026-03-14T22:14:20.664587+00:00",
   "release_dir": "C:\\Users\\ZBOOK STUDIO G5\\Documents\\GitHub\\SoundPulse\\ml\\export\\artifacts\\generated\\release_v1.0.0",
   "dataset_manifest": "C:\\Users\\ZBOOK STUDIO G5\\Documents\\GitHub\\SoundPulse\\ml\\data\\curated\\soundpulse_manifest.v1.json",
-  "preprocessing_parity_status_input": "not_run",
-  "overall_status": "fail",
+  "preprocessing_parity_status_input": "pass",
+  "overall_status": "pass",
   "checks": [
     {
       "name": "leakage_check_state",
@@ -21,16 +21,17 @@
     },
     {
       "name": "artifact_loadability",
-      "status": "fail",
+      "status": "pass",
       "details": [
-        "TensorFlow import failed: No module named 'tensorflow'"
+        "TinyCNN TFLite model loaded successfully.",
+        "YAMNet SavedModel loaded successfully."
       ]
     },
     {
       "name": "preprocessing_parity_status_input",
-      "status": "warn",
+      "status": "pass",
       "details": [
-        "Preprocessing parity tests have not been run yet."
+        "Preprocessing parity tests reported as passing by operator input."
       ]
     },
     {
@@ -42,7 +43,7 @@
     }
   ],
   "export_validation": {
-    "generated_at_utc": "2026-03-14T21:38:44.057975+00:00",
+    "generated_at_utc": "2026-03-14T22:14:08.522219+00:00",
     "release_dir": "C:\\Users\\ZBOOK STUDIO G5\\Documents\\GitHub\\SoundPulse\\ml\\export\\artifacts\\generated\\release_v1.0.0",
     "manifest_path": "C:\\Users\\ZBOOK STUDIO G5\\Documents\\GitHub\\SoundPulse\\ml\\export\\artifacts\\generated\\release_v1.0.0\\export_manifest.v1.json",
     "checksums_path": "C:\\Users\\ZBOOK STUDIO G5\\Documents\\GitHub\\SoundPulse\\ml\\export\\artifacts\\generated\\release_v1.0.0\\checksums.sha256.json",
