@@ -1,0 +1,84 @@
+{
+  "generated_at_utc": "2026-03-14T22:14:20.664587+00:00",
+  "release_dir": "C:\\Users\\ZBOOK STUDIO G5\\Documents\\GitHub\\SoundPulse\\ml\\export\\artifacts\\generated\\release_v1.0.0",
+  "dataset_manifest": "C:\\Users\\ZBOOK STUDIO G5\\Documents\\GitHub\\SoundPulse\\ml\\data\\curated\\soundpulse_manifest.v1.json",
+  "preprocessing_parity_status_input": "pass",
+  "overall_status": "pass",
+  "checks": [
+    {
+      "name": "leakage_check_state",
+      "status": "pass",
+      "details": [
+        "Dataset split-integrity validation passed for 21456 clips and 21386 source groups."
+      ]
+    },
+    {
+      "name": "artifact_integrity",
+      "status": "pass",
+      "details": [
+        "Export artifact validation overall_status=pass."
+      ]
+    },
+    {
+      "name": "artifact_loadability",
+      "status": "pass",
+      "details": [
+        "TinyCNN TFLite model loaded successfully.",
+        "YAMNet SavedModel loaded successfully."
+      ]
+    },
+    {
+      "name": "preprocessing_parity_status_input",
+      "status": "pass",
+      "details": [
+        "Preprocessing parity tests reported as passing by operator input."
+      ]
+    },
+    {
+      "name": "benchmark_baseline_presence",
+      "status": "pass",
+      "details": [
+        "Benchmark summaries present. tinycnn_macro_f1=0.12, yamnet_macro_f1=0.52, winner=YAMNet."
+      ]
+    }
+  ],
+  "export_validation": {
+    "generated_at_utc": "2026-03-14T22:14:08.522219+00:00",
+    "release_dir": "C:\\Users\\ZBOOK STUDIO G5\\Documents\\GitHub\\SoundPulse\\ml\\export\\artifacts\\generated\\release_v1.0.0",
+    "manifest_path": "C:\\Users\\ZBOOK STUDIO G5\\Documents\\GitHub\\SoundPulse\\ml\\export\\artifacts\\generated\\release_v1.0.0\\export_manifest.v1.json",
+    "checksums_path": "C:\\Users\\ZBOOK STUDIO G5\\Documents\\GitHub\\SoundPulse\\ml\\export\\artifacts\\generated\\release_v1.0.0\\checksums.sha256.json",
+    "overall_status": "pass",
+    "checks": [
+      {
+        "name": "file_presence",
+        "status": "pass",
+        "details": []
+      },
+      {
+        "name": "manifest_schema_conformance",
+        "status": "pass",
+        "details": []
+      },
+      {
+        "name": "model_files_and_manifest_checksums",
+        "status": "pass",
+        "details": []
+      },
+      {
+        "name": "checksum_manifest_integrity",
+        "status": "pass",
+        "details": []
+      },
+      {
+        "name": "threshold_payload_version_consistency",
+        "status": "pass",
+        "details": []
+      },
+      {
+        "name": "metadata_consistency",
+        "status": "pass",
+        "details": []
+      }
+    ]
+  }
+}

@@ -14,6 +14,12 @@ from .datasets import (
     validate_dataset_manifest,
     write_phase1_dataset_artifacts,
 )
+from .preprocessing import (
+    hash_feature_tensor,
+    load_preprocessing_config,
+    preprocess_audio_path,
+    summarize_preprocessing_config,
+)
 
 __all__ = [
     "DEFAULT_MANIFEST_PATH",
@@ -23,9 +29,13 @@ __all__ = [
     "load_contract_bundle",
     "load_dataset_manifest",
     "manifest_to_dataframe",
+    "hash_feature_tensor",
+    "load_preprocessing_config",
+    "preprocess_audio_path",
     "resolve_audio_path",
     "summarize_dataset_manifest",
     "summarize_dataset_manifest_frame",
+    "summarize_preprocessing_config",
     "validate_dataset_manifest",
     "write_phase1_dataset_artifacts",
 ]

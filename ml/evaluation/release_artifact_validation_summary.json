@@ -1,0 +1,39 @@
+{
+  "generated_at_utc": "2026-03-14T21:38:40.780707+00:00",
+  "release_dir": "C:\\Users\\ZBOOK STUDIO G5\\Documents\\GitHub\\SoundPulse\\ml\\export\\artifacts\\generated\\release_v1.0.0",
+  "manifest_path": "C:\\Users\\ZBOOK STUDIO G5\\Documents\\GitHub\\SoundPulse\\ml\\export\\artifacts\\generated\\release_v1.0.0\\export_manifest.v1.json",
+  "checksums_path": "C:\\Users\\ZBOOK STUDIO G5\\Documents\\GitHub\\SoundPulse\\ml\\export\\artifacts\\generated\\release_v1.0.0\\checksums.sha256.json",
+  "overall_status": "pass",
+  "checks": [
+    {
+      "name": "file_presence",
+      "status": "pass",
+      "details": []
+    },
+    {
+      "name": "manifest_schema_conformance",
+      "status": "pass",
+      "details": []
+    },
+    {
+      "name": "model_files_and_manifest_checksums",
+      "status": "pass",
+      "details": []
+    },
+    {
+      "name": "checksum_manifest_integrity",
+      "status": "pass",
+      "details": []
+    },
+    {
+      "name": "threshold_payload_version_consistency",
+      "status": "pass",
+      "details": []
+    },
+    {
+      "name": "metadata_consistency",
+      "status": "pass",
+      "details": []
+    }
+  ]
+}

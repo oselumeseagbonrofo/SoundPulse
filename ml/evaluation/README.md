@@ -19,6 +19,14 @@ Current reports:
 - `yamnet_threshold_sweep.csv` for the full threshold sweep across distance, ambiguity ratio, and loudness operating points
 - `yamnet_threshold_operating_points.json` for the named operating-point comparison exported from the sweep (`selected_release_candidate`, `best_balanced_score`, `best_known_retention`)
 - `yamnet_known_test_calibrated_predictions.csv` and `yamnet_unknown_holdout_calibrated_predictions.csv` for calibrated YAMNet routing behavior on the known test set and the FSD50K out-of-scope holdout set
+- `release_artifact_validation_summary.json` for the machine-readable export integrity check output from `scripts/validate_export_artifacts.py`
+- `release_gate_summary.json` and `release_gate_report.md` for the M9 release-gate status across leakage, artifact integrity, loadability, preprocessing parity status input, and benchmark baseline presence
+
+Release-gate commands:
+
+- `python scripts/build_export_package.py`
+- `python scripts/validate_export_artifacts.py`
+- `python scripts/run_release_gate.py --preprocessing-parity-status not_run`
 
 Current calibration status:
 
