@@ -1,0 +1,592 @@
+{
+  "status": "pass",
+  "manifest_path": "ml\\data\\curated\\soundpulse_manifest.v1.json",
+  "preprocessing_config_path": "packages\\shared_contracts\\v1\\preprocessing_config.json",
+  "split": "validation",
+  "max_clips": 24,
+  "repeats": 3,
+  "tolerance": {
+    "atol": 1e-07,
+    "rtol": 1e-06
+  },
+  "include_partial_last_window": true,
+  "clip_count": 24,
+  "comparisons": [
+    {
+      "clip_id": "fsd50k-100300",
+      "audio_path": "C:\\Users\\ZBOOK STUDIO G5\\Documents\\GitHub\\SoundPulse\\ml\\data\\raw\\FSDK50_dataset\\FSD50K.dev_audio\\100300.wav",
+      "feature_shape": [
+        27,
+        64,
+        97
+      ],
+      "baseline_sha256": "090292afd5a64d54599a5a06ea6f2551f91a5e3e4737f8796d763134c4f912de",
+      "checks": [
+        {
+          "run_index": 2,
+          "allclose": true,
+          "max_abs_diff": 0.0,
+          "same_sha256": true
+        },
+        {
+          "run_index": 3,
+          "allclose": true,
+          "max_abs_diff": 0.0,
+          "same_sha256": true
+        }
+      ]
+    },
+    {
+      "clip_id": "fsd50k-100476",
+      "audio_path": "C:\\Users\\ZBOOK STUDIO G5\\Documents\\GitHub\\SoundPulse\\ml\\data\\raw\\FSDK50_dataset\\FSD50K.dev_audio\\100476.wav",
+      "feature_shape": [
+        20,
+        64,
+        97
+      ],
+      "baseline_sha256": "d856688474d8bde1f02c080e63213c9e0b0e2ed01c38cdade8808c844cda5c18",
+      "checks": [
+        {
+          "run_index": 2,
+          "allclose": true,
+          "max_abs_diff": 0.0,
+          "same_sha256": true
+        },
+        {
+          "run_index": 3,
+          "allclose": true,
+          "max_abs_diff": 0.0,
+          "same_sha256": true
+        }
+      ]
+    },
+    {
+      "clip_id": "fsd50k-101383",
+      "audio_path": "C:\\Users\\ZBOOK STUDIO G5\\Documents\\GitHub\\SoundPulse\\ml\\data\\raw\\FSDK50_dataset\\FSD50K.dev_audio\\101383.wav",
+      "feature_shape": [
+        8,
+        64,
+        97
+      ],
+      "baseline_sha256": "fbcf282ea1aa364a9ebd38e2fd1488f7429946da24a679a9d9f74ac6658965fb",
+      "checks": [
+        {
+          "run_index": 2,
+          "allclose": true,
+          "max_abs_diff": 0.0,
+          "same_sha256": true
+        },
+        {
+          "run_index": 3,
+          "allclose": true,
+          "max_abs_diff": 0.0,
+          "same_sha256": true
+        }
+      ]
+    },
+    {
+      "clip_id": "fsd50k-101696",
+      "audio_path": "C:\\Users\\ZBOOK STUDIO G5\\Documents\\GitHub\\SoundPulse\\ml\\data\\raw\\FSDK50_dataset\\FSD50K.dev_audio\\101696.wav",
+      "feature_shape": [
+        6,
+        64,
+        97
+      ],
+      "baseline_sha256": "14aa1a52c7c784395d4a11fe027c0390f2f874d932ab2ca1b1c690e28ae07472",
+      "checks": [
+        {
+          "run_index": 2,
+          "allclose": true,
+          "max_abs_diff": 0.0,
+          "same_sha256": true
+        },
+        {
+          "run_index": 3,
+          "allclose": true,
+          "max_abs_diff": 0.0,
+          "same_sha256": true
+        }
+      ]
+    },
+    {
+      "clip_id": "fsd50k-101697",
+      "audio_path": "C:\\Users\\ZBOOK STUDIO G5\\Documents\\GitHub\\SoundPulse\\ml\\data\\raw\\FSDK50_dataset\\FSD50K.dev_audio\\101697.wav",
+      "feature_shape": [
+        3,
+        64,
+        97
+      ],
+      "baseline_sha256": "64edbd314390f090532b1e95c933001049dc384a1a8f979c304fc03ec36d801b",
+      "checks": [
+        {
+          "run_index": 2,
+          "allclose": true,
+          "max_abs_diff": 0.0,
+          "same_sha256": true
+        },
+        {
+          "run_index": 3,
+          "allclose": true,
+          "max_abs_diff": 0.0,
+          "same_sha256": true
+        }
+      ]
+    },
+    {
+      "clip_id": "fsd50k-102034",
+      "audio_path": "C:\\Users\\ZBOOK STUDIO G5\\Documents\\GitHub\\SoundPulse\\ml\\data\\raw\\FSDK50_dataset\\FSD50K.dev_audio\\102034.wav",
+      "feature_shape": [
+        9,
+        64,
+        97
+      ],
+      "baseline_sha256": "f81327d603cc4dc1f481f12bc7824e819de75fcf49af9d3b88fb84d7da023de4",
+      "checks": [
+        {
+          "run_index": 2,
+          "allclose": true,
+          "max_abs_diff": 0.0,
+          "same_sha256": true
+        },
+        {
+          "run_index": 3,
+          "allclose": true,
+          "max_abs_diff": 0.0,
+          "same_sha256": true
+        }
+      ]
+    },
+    {
+      "clip_id": "fsd50k-102036",
+      "audio_path": "C:\\Users\\ZBOOK STUDIO G5\\Documents\\GitHub\\SoundPulse\\ml\\data\\raw\\FSDK50_dataset\\FSD50K.dev_audio\\102036.wav",
+      "feature_shape": [
+        2,
+        64,
+        97
+      ],
+      "baseline_sha256": "8dfada6a5b6869d3c07af91f013eac48539e3943cf3a45208aca45bb4b6ace04",
+      "checks": [
+        {
+          "run_index": 2,
+          "allclose": true,
+          "max_abs_diff": 0.0,
+          "same_sha256": true
+        },
+        {
+          "run_index": 3,
+          "allclose": true,
+          "max_abs_diff": 0.0,
+          "same_sha256": true
+        }
+      ]
+    },
+    {
+      "clip_id": "fsd50k-103015",
+      "audio_path": "C:\\Users\\ZBOOK STUDIO G5\\Documents\\GitHub\\SoundPulse\\ml\\data\\raw\\FSDK50_dataset\\FSD50K.dev_audio\\103015.wav",
+      "feature_shape": [
+        2,
+        64,
+        97
+      ],
+      "baseline_sha256": "bd069c94ecd5ab26d6b98ddd18e534e3afbedf8a365306138601cea11ddcd30b",
+      "checks": [
+        {
+          "run_index": 2,
+          "allclose": true,
+          "max_abs_diff": 0.0,
+          "same_sha256": true
+        },
+        {
+          "run_index": 3,
+          "allclose": true,
+          "max_abs_diff": 0.0,
+          "same_sha256": true
+        }
+      ]
+    },
+    {
+      "clip_id": "fsd50k-103078",
+      "audio_path": "C:\\Users\\ZBOOK STUDIO G5\\Documents\\GitHub\\SoundPulse\\ml\\data\\raw\\FSDK50_dataset\\FSD50K.dev_audio\\103078.wav",
+      "feature_shape": [
+        28,
+        64,
+        97
+      ],
+      "baseline_sha256": "cd1a7d1640ad1dbd4dffc6bd185e8cbd14a857fc559da97c7601237e477a3224",
+      "checks": [
+        {
+          "run_index": 2,
+          "allclose": true,
+          "max_abs_diff": 0.0,
+          "same_sha256": true
+        },
+        {
+          "run_index": 3,
+          "allclose": true,
+          "max_abs_diff": 0.0,
+          "same_sha256": true
+        }
+      ]
+    },
+    {
+      "clip_id": "fsd50k-103173",
+      "audio_path": "C:\\Users\\ZBOOK STUDIO G5\\Documents\\GitHub\\SoundPulse\\ml\\data\\raw\\FSDK50_dataset\\FSD50K.dev_audio\\103173.wav",
+      "feature_shape": [
+        4,
+        64,
+        97
+      ],
+      "baseline_sha256": "368c1b04496632a3190a489d37f331ecb9fe6da3d6feec88d2851f29a097e1b9",
+      "checks": [
+        {
+          "run_index": 2,
+          "allclose": true,
+          "max_abs_diff": 0.0,
+          "same_sha256": true
+        },
+        {
+          "run_index": 3,
+          "allclose": true,
+          "max_abs_diff": 0.0,
+          "same_sha256": true
+        }
+      ]
+    },
+    {
+      "clip_id": "fsd50k-103637",
+      "audio_path": "C:\\Users\\ZBOOK STUDIO G5\\Documents\\GitHub\\SoundPulse\\ml\\data\\raw\\FSDK50_dataset\\FSD50K.dev_audio\\103637.wav",
+      "feature_shape": [
+        17,
+        64,
+        97
+      ],
+      "baseline_sha256": "a7af9a102e0d535129c0df807ec761be2dab55daeb9c63dd36e68055f4ad53e1",
+      "checks": [
+        {
+          "run_index": 2,
+          "allclose": true,
+          "max_abs_diff": 0.0,
+          "same_sha256": true
+        },
+        {
+          "run_index": 3,
+          "allclose": true,
+          "max_abs_diff": 0.0,
+          "same_sha256": true
+        }
+      ]
+    },
+    {
+      "clip_id": "fsd50k-103643",
+      "audio_path": "C:\\Users\\ZBOOK STUDIO G5\\Documents\\GitHub\\SoundPulse\\ml\\data\\raw\\FSDK50_dataset\\FSD50K.dev_audio\\103643.wav",
+      "feature_shape": [
+        11,
+        64,
+        97
+      ],
+      "baseline_sha256": "ad5c334b93493434b4e2385b23540005c9fe37adfe29ec2fc898be8e0a0717c9",
+      "checks": [
+        {
+          "run_index": 2,
+          "allclose": true,
+          "max_abs_diff": 0.0,
+          "same_sha256": true
+        },
+        {
+          "run_index": 3,
+          "allclose": true,
+          "max_abs_diff": 0.0,
+          "same_sha256": true
+        }
+      ]
+    },
+    {
+      "clip_id": "fsd50k-105406",
+      "audio_path": "C:\\Users\\ZBOOK STUDIO G5\\Documents\\GitHub\\SoundPulse\\ml\\data\\raw\\FSDK50_dataset\\FSD50K.dev_audio\\105406.wav",
+      "feature_shape": [
+        8,
+        64,
+        97
+      ],
+      "baseline_sha256": "fef6b8e2ce2c53c7581717f7c57fd5772247f2ad8f67fbb34839836557a4bf69",
+      "checks": [
+        {
+          "run_index": 2,
+          "allclose": true,
+          "max_abs_diff": 0.0,
+          "same_sha256": true
+        },
+        {
+          "run_index": 3,
+          "allclose": true,
+          "max_abs_diff": 0.0,
+          "same_sha256": true
+        }
+      ]
+    },
+    {
+      "clip_id": "fsd50k-106531",
+      "audio_path": "C:\\Users\\ZBOOK STUDIO G5\\Documents\\GitHub\\SoundPulse\\ml\\data\\raw\\FSDK50_dataset\\FSD50K.dev_audio\\106531.wav",
+      "feature_shape": [
+        6,
+        64,
+        97
+      ],
+      "baseline_sha256": "9c74df242dfdce8724bb0c1406a1ffcf9cd163d3c482ed596d8ae52437372100",
+      "checks": [
+        {
+          "run_index": 2,
+          "allclose": true,
+          "max_abs_diff": 0.0,
+          "same_sha256": true
+        },
+        {
+          "run_index": 3,
+          "allclose": true,
+          "max_abs_diff": 0.0,
+          "same_sha256": true
+        }
+      ]
+    },
+    {
+      "clip_id": "fsd50k-106782",
+      "audio_path": "C:\\Users\\ZBOOK STUDIO G5\\Documents\\GitHub\\SoundPulse\\ml\\data\\raw\\FSDK50_dataset\\FSD50K.dev_audio\\106782.wav",
+      "feature_shape": [
+        4,
+        64,
+        97
+      ],
+      "baseline_sha256": "15afdc5cb6e9de54e97c18c8cc02357a765cb72200daf41d0406c8ceee660ef6",
+      "checks": [
+        {
+          "run_index": 2,
+          "allclose": true,
+          "max_abs_diff": 0.0,
+          "same_sha256": true
+        },
+        {
+          "run_index": 3,
+          "allclose": true,
+          "max_abs_diff": 0.0,
+          "same_sha256": true
+        }
+      ]
+    },
+    {
+      "clip_id": "fsd50k-107000",
+      "audio_path": "C:\\Users\\ZBOOK STUDIO G5\\Documents\\GitHub\\SoundPulse\\ml\\data\\raw\\FSDK50_dataset\\FSD50K.dev_audio\\107000.wav",
+      "feature_shape": [
+        1,
+        64,
+        97
+      ],
+      "baseline_sha256": "a06d838cde8ad9767c70f445fed826500e5ef58fdf387cad19ad4edb670f5775",
+      "checks": [
+        {
+          "run_index": 2,
+          "allclose": true,
+          "max_abs_diff": 0.0,
+          "same_sha256": true
+        },
+        {
+          "run_index": 3,
+          "allclose": true,
+          "max_abs_diff": 0.0,
+          "same_sha256": true
+        }
+      ]
+    },
+    {
+      "clip_id": "fsd50k-107302",
+      "audio_path": "C:\\Users\\ZBOOK STUDIO G5\\Documents\\GitHub\\SoundPulse\\ml\\data\\raw\\FSDK50_dataset\\FSD50K.dev_audio\\107302.wav",
+      "feature_shape": [
+        1,
+        64,
+        97
+      ],
+      "baseline_sha256": "169e0a33a7796027969437ad89b970e8794c5fbabb6eea23ffc01a4edf2cc966",
+      "checks": [
+        {
+          "run_index": 2,
+          "allclose": true,
+          "max_abs_diff": 0.0,
+          "same_sha256": true
+        },
+        {
+          "run_index": 3,
+          "allclose": true,
+          "max_abs_diff": 0.0,
+          "same_sha256": true
+        }
+      ]
+    },
+    {
+      "clip_id": "fsd50k-107321",
+      "audio_path": "C:\\Users\\ZBOOK STUDIO G5\\Documents\\GitHub\\SoundPulse\\ml\\data\\raw\\FSDK50_dataset\\FSD50K.dev_audio\\107321.wav",
+      "feature_shape": [
+        1,
+        64,
+        97
+      ],
+      "baseline_sha256": "acb7bccd52080b6ac75faa4ea6df603322bcb14aed2206b3ad2c1ede9e6fa1f9",
+      "checks": [
+        {
+          "run_index": 2,
+          "allclose": true,
+          "max_abs_diff": 0.0,
+          "same_sha256": true
+        },
+        {
+          "run_index": 3,
+          "allclose": true,
+          "max_abs_diff": 0.0,
+          "same_sha256": true
+        }
+      ]
+    },
+    {
+      "clip_id": "fsd50k-107328",
+      "audio_path": "C:\\Users\\ZBOOK STUDIO G5\\Documents\\GitHub\\SoundPulse\\ml\\data\\raw\\FSDK50_dataset\\FSD50K.dev_audio\\107328.wav",
+      "feature_shape": [
+        1,
+        64,
+        97
+      ],
+      "baseline_sha256": "f579a34ce9a0271f9c8ce8c5a608406e83a2e4e31e1d8ff489fa3c6356f60971",
+      "checks": [
+        {
+          "run_index": 2,
+          "allclose": true,
+          "max_abs_diff": 0.0,
+          "same_sha256": true
+        },
+        {
+          "run_index": 3,
+          "allclose": true,
+          "max_abs_diff": 0.0,
+          "same_sha256": true
+        }
+      ]
+    },
+    {
+      "clip_id": "fsd50k-107329",
+      "audio_path": "C:\\Users\\ZBOOK STUDIO G5\\Documents\\GitHub\\SoundPulse\\ml\\data\\raw\\FSDK50_dataset\\FSD50K.dev_audio\\107329.wav",
+      "feature_shape": [
+        1,
+        64,
+        97
+      ],
+      "baseline_sha256": "7577017e2fde6f9caebedfe35a724296747f9ebbba73568a644a39e1fd57903e",
+      "checks": [
+        {
+          "run_index": 2,
+          "allclose": true,
+          "max_abs_diff": 0.0,
+          "same_sha256": true
+        },
+        {
+          "run_index": 3,
+          "allclose": true,
+          "max_abs_diff": 0.0,
+          "same_sha256": true
+        }
+      ]
+    },
+    {
+      "clip_id": "fsd50k-10828",
+      "audio_path": "C:\\Users\\ZBOOK STUDIO G5\\Documents\\GitHub\\SoundPulse\\ml\\data\\raw\\FSDK50_dataset\\FSD50K.dev_audio\\10828.wav",
+      "feature_shape": [
+        1,
+        64,
+        97
+      ],
+      "baseline_sha256": "9914acf1e3ac9c08e63390706f03b8b449b4e28abc64b7da259e432ef292dda3",
+      "checks": [
+        {
+          "run_index": 2,
+          "allclose": true,
+          "max_abs_diff": 0.0,
+          "same_sha256": true
+        },
+        {
+          "run_index": 3,
+          "allclose": true,
+          "max_abs_diff": 0.0,
+          "same_sha256": true
+        }
+      ]
+    },
+    {
+      "clip_id": "fsd50k-108704",
+      "audio_path": "C:\\Users\\ZBOOK STUDIO G5\\Documents\\GitHub\\SoundPulse\\ml\\data\\raw\\FSDK50_dataset\\FSD50K.dev_audio\\108704.wav",
+      "feature_shape": [
+        7,
+        64,
+        97
+      ],
+      "baseline_sha256": "0be16a6e7192d8e2117ac0d623be2b36afe279e92541b007d9663711895fd9a6",
+      "checks": [
+        {
+          "run_index": 2,
+          "allclose": true,
+          "max_abs_diff": 0.0,
+          "same_sha256": true
+        },
+        {
+          "run_index": 3,
+          "allclose": true,
+          "max_abs_diff": 0.0,
+          "same_sha256": true
+        }
+      ]
+    },
+    {
+      "clip_id": "fsd50k-10903",
+      "audio_path": "C:\\Users\\ZBOOK STUDIO G5\\Documents\\GitHub\\SoundPulse\\ml\\data\\raw\\FSDK50_dataset\\FSD50K.dev_audio\\10903.wav",
+      "feature_shape": [
+        4,
+        64,
+        97
+      ],
+      "baseline_sha256": "7ba6a50a23f384a0e3c912d89ffc9e4a2f6229d0d4a45a3451da81c55f7796f9",
+      "checks": [
+        {
+          "run_index": 2,
+          "allclose": true,
+          "max_abs_diff": 0.0,
+          "same_sha256": true
+        },
+        {
+          "run_index": 3,
+          "allclose": true,
+          "max_abs_diff": 0.0,
+          "same_sha256": true
+        }
+      ]
+    },
+    {
+      "clip_id": "fsd50k-109365",
+      "audio_path": "C:\\Users\\ZBOOK STUDIO G5\\Documents\\GitHub\\SoundPulse\\ml\\data\\raw\\FSDK50_dataset\\FSD50K.dev_audio\\109365.wav",
+      "feature_shape": [
+        4,
+        64,
+        97
+      ],
+      "baseline_sha256": "ddc2814deadece466abe4561433ef8b78d5cc70f17cf57b96129620bfe507ca5",
+      "checks": [
+        {
+          "run_index": 2,
+          "allclose": true,
+          "max_abs_diff": 0.0,
+          "same_sha256": true
+        },
+        {
+          "run_index": 3,
+          "allclose": true,
+          "max_abs_diff": 0.0,
+          "same_sha256": true
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "manifest": "ml/data/curated/soundpulse_manifest.v1.json",
+  "preprocessing_config": "packages/shared_contracts/v1/preprocessing_config.json",
+  "report_path": "ml/evaluation/preprocessing_determinism_report.json",
+  "split": "validation",
+  "max_clips": 24,
+  "repeats": 3,
+  "atol": 1e-7,
+  "rtol": 1e-6,
+  "include_partial_last_window": true
+}
