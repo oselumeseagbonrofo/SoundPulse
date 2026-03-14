@@ -1,0 +1,56 @@
+{
+  "status": "pass",
+  "baseline_path": "ml\\evaluation\\fixtures\\preprocessing_parity_baseline.v1.json",
+  "preprocessing_config_path": "packages\\shared_contracts\\v1\\preprocessing_config.json",
+  "tolerance": {
+    "atol": 1e-06,
+    "rtol": 1e-05
+  },
+  "comparisons": [
+    {
+      "name": "sine_440_mono_16k",
+      "status": "pass",
+      "shape_ok": true,
+      "anchor_allclose": true,
+      "max_anchor_abs_diff": 0.0,
+      "stats_ok": {
+        "mean": true,
+        "std": true,
+        "min": true,
+        "max": true
+      },
+      "expected_sha256": "fb3dd1ee69613dce6a2e2f53593a897e5aee13d7922f34b92a919d3f8cf348da",
+      "observed_sha256": "fb3dd1ee69613dce6a2e2f53593a897e5aee13d7922f34b92a919d3f8cf348da"
+    },
+    {
+      "name": "dual_tone_stereo_22k05",
+      "status": "pass",
+      "shape_ok": true,
+      "anchor_allclose": true,
+      "max_anchor_abs_diff": 0.0,
+      "stats_ok": {
+        "mean": true,
+        "std": true,
+        "min": true,
+        "max": true
+      },
+      "expected_sha256": "88ac7fa7c732f979fe5ed09c3ee61f0fff3282653c0da9da1875c5fdd0b79653",
+      "observed_sha256": "88ac7fa7c732f979fe5ed09c3ee61f0fff3282653c0da9da1875c5fdd0b79653"
+    },
+    {
+      "name": "chirp_mono_24k",
+      "status": "pass",
+      "shape_ok": true,
+      "anchor_allclose": true,
+      "max_anchor_abs_diff": 0.0,
+      "stats_ok": {
+        "mean": true,
+        "std": true,
+        "min": true,
+        "max": true
+      },
+      "expected_sha256": "14ff35bd27c0769780605aa83a077921f1b682dc0cb7bdfe14243fb058f98782",
+      "observed_sha256": "14ff35bd27c0769780605aa83a077921f1b682dc0cb7bdfe14243fb058f98782"
+    }
+  ]
+}
