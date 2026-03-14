@@ -1,0 +1,7 @@
+{
+    "chat.tools.terminal.autoApproveWorkspaceNpmScripts": true,
+    "chat.tools.terminal.sandbox.enabled": true,
+    "chat.tools.terminal.autoApprove": {
+        "&": true
+    },
+}

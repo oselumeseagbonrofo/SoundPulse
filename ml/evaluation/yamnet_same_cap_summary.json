@@ -1,0 +1,32 @@
+{
+  "model_name": "yamnet",
+  "protocol": "shared_prototype_eval_same_cap",
+  "shared_caps": {
+    "train": 128,
+    "validation": 64,
+    "test": 64
+  },
+  "test_support": 528,
+  "aggregate_metrics": {
+    "accuracy": 0.5076,
+    "macro_precision": 0.5673,
+    "macro_recall": 0.5432,
+    "macro_f1": 0.5181,
+    "weighted_precision": 0.582,
+    "weighted_recall": 0.5076,
+    "weighted_f1": 0.5108
+  },
+  "per_class_recall": {
+    "fire_alarm": 0.2969,
+    "clock_alarm": 0.875,
+    "door_knock": 0.25,
+    "doorbell": 0.3824,
+    "crying_baby": 0.7368,
+    "water_running": 0.7969,
+    "dog_barking": 0.5625,
+    "door_wood_creaking": 0.4688,
+    "speech": 0.8281,
+    "background": 0.2344
+  },
+  "predictions_path": "ml\\evaluation\\yamnet_same_cap_predictions.csv"
+}

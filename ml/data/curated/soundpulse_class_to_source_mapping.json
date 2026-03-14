@@ -1,0 +1,76 @@
+{
+  "fire_alarm": {
+    "esc50_categories": [
+      "fireworks"
+    ],
+    "fsd50k_mids": [
+      "/m/07pp_mv"
+    ]
+  },
+  "clock_alarm": {
+    "esc50_categories": [
+      "clock_alarm"
+    ],
+    "fsd50k_mids": []
+  },
+  "door_knock": {
+    "esc50_categories": [
+      "door_wood_knock"
+    ],
+    "fsd50k_mids": [
+      "/m/07r4wb8"
+    ]
+  },
+  "doorbell": {
+    "esc50_categories": [],
+    "fsd50k_mids": [
+      "/m/03wwcy"
+    ]
+  },
+  "crying_baby": {
+    "esc50_categories": [
+      "crying_baby"
+    ],
+    "fsd50k_mids": [
+      "/m/0463cq4"
+    ]
+  },
+  "water_running": {
+    "esc50_categories": [],
+    "fsd50k_mids": [
+      "/m/02jz0l"
+    ]
+  },
+  "dog_barking": {
+    "esc50_categories": [
+      "dog"
+    ],
+    "fsd50k_mids": [
+      "/m/05tny_"
+    ]
+  },
+  "door_wood_creaking": {
+    "esc50_categories": [
+      "door_wood_creaks"
+    ],
+    "fsd50k_mids": [
+      "/m/07q6cd_"
+    ]
+  },
+  "speech": {
+    "esc50_categories": [],
+    "fsd50k_mids": [
+      "/m/09x0r"
+    ]
+  },
+  "background": {
+    "esc50_categories": [],
+    "fsd50k_mids": [
+      "/m/04brg2",
+      "/m/0dxrf",
+      "/m/04rlf",
+      "/m/02x984l"
+    ],
+    "note": "Phase-1 Nigerian noise fallback built from the null background class combinations in sound_data_classes.md."
+  }
+}

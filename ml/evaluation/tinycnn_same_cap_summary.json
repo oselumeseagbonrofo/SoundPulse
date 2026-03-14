@@ -1,0 +1,32 @@
+{
+  "model_name": "tinycnn",
+  "protocol": "shared_prototype_eval_same_cap",
+  "shared_caps": {
+    "train": 128,
+    "validation": 64,
+    "test": 64
+  },
+  "test_support": 528,
+  "aggregate_metrics": {
+    "accuracy": 0.2936,
+    "macro_precision": 0.2738,
+    "macro_recall": 0.32,
+    "macro_f1": 0.2618,
+    "weighted_precision": 0.293,
+    "weighted_recall": 0.2936,
+    "weighted_f1": 0.2657
+  },
+  "per_class_recall": {
+    "fire_alarm": 0.0312,
+    "clock_alarm": 0.5,
+    "door_knock": 0.6562,
+    "doorbell": 0.2941,
+    "crying_baby": 0.5,
+    "water_running": 0.4375,
+    "dog_barking": 0.4219,
+    "door_wood_creaking": 0.1875,
+    "speech": 0.0938,
+    "background": 0.0781
+  },
+  "predictions_path": "ml\\evaluation\\tinycnn_same_cap_predictions.csv"
+}

@@ -3,3 +3,14 @@ Name: soundpulse-ml
 Version: 0.1.0
 Summary: ML workspace for the SoundPulse offline environmental sound recognition system
 Requires-Python: >=3.11
+Requires-Dist: ipykernel>=6.29
+Requires-Dist: jupyter>=1.1
+Requires-Dist: kagglehub>=0.3
+Requires-Dist: librosa>=0.10
+Requires-Dist: matplotlib>=3.8
+Requires-Dist: numpy>=1.26
+Requires-Dist: pandas>=2.2
+Requires-Dist: scikit-learn>=1.4
+Requires-Dist: seaborn>=0.13
+Requires-Dist: soundfile>=0.12
+Requires-Dist: tensorflow>=2.16

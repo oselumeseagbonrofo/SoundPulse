@@ -1,0 +1,29 @@
+{
+  "model_name": "YAMNet",
+  "source_notebook": "ml/notebooks/03_yamnet_kaggle_pipeline.ipynb",
+  "artifact_dir": "ml/export/artifacts/generated/yamnet_kaggle",
+  "evaluation_source": "saved_notebook_output_and_exported_predictions",
+  "test_support": 528,
+  "embedding_dim": 1024,
+  "aggregate_metrics": {
+    "accuracy": 0.51,
+    "macro_precision": 0.57,
+    "macro_recall": 0.54,
+    "macro_f1": 0.52,
+    "weighted_precision": 0.58,
+    "weighted_recall": 0.51,
+    "weighted_f1": 0.51
+  },
+  "per_class_metrics": {
+    "fire_alarm": {"precision": 0.49, "recall": 0.3, "f1": 0.37, "support": 64},
+    "clock_alarm": {"precision": 0.39, "recall": 0.88, "f1": 0.54, "support": 8},
+    "door_knock": {"precision": 0.25, "recall": 0.25, "f1": 0.25, "support": 64},
+    "doorbell": {"precision": 0.3, "recall": 0.38, "f1": 0.33, "support": 34},
+    "crying_baby": {"precision": 0.97, "recall": 0.74, "f1": 0.84, "support": 38},
+    "water_running": {"precision": 0.93, "recall": 0.8, "f1": 0.86, "support": 64},
+    "dog_barking": {"precision": 1.0, "recall": 0.56, "f1": 0.72, "support": 64},
+    "door_wood_creaking": {"precision": 0.37, "recall": 0.47, "f1": 0.41, "support": 64},
+    "speech": {"precision": 0.38, "recall": 0.83, "f1": 0.52, "support": 64},
+    "background": {"precision": 0.6, "recall": 0.23, "f1": 0.34, "support": 64}
+  }
+}

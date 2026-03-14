@@ -1,0 +1,551 @@
+[
+  {
+    "name": "selected_release_candidate",
+    "description": "Toleranced candidate that preserves known validation quality while improving rejection.",
+    "candidate_id": 872,
+    "thresholds": {
+      "distance_threshold": 175.8489,
+      "unknown_ratio_threshold": 0.8858,
+      "loudness_floor_dbfs": -58.7
+    },
+    "calibration_validation": {
+      "accuracy": 0.4651,
+      "macro_f1": 0.5273,
+      "macro_recall": 0.4746,
+      "urgent_recall": 0.3102,
+      "background_non_alert_rate": 0.7188
+    },
+    "unknown_calibration": {
+      "unknown_precision": 0.7801,
+      "unknown_recall": 0.4814,
+      "unknown_non_alert_rate": 0.5518,
+      "false_alert_rate": 0.4482
+    },
+    "balanced_score": 0.4904,
+    "holdout_known_test": {
+      "accuracy": 0.4223,
+      "macro_f1": 0.4928,
+      "macro_recall": 0.469,
+      "urgent_recall": 0.366,
+      "background_non_alert_rate": 0.4375
+    },
+    "holdout_open_set": {
+      "unknown_precision": 0.7566,
+      "unknown_recall": 0.4736,
+      "unknown_non_alert_rate": 0.5342,
+      "false_alert_rate": 0.4658
+    },
+    "known_test_label_breakdown": {
+      "background": 19,
+      "clock_alarm": 14,
+      "crying_baby": 28,
+      "dog_barking": 36,
+      "door_knock": 42,
+      "door_wood_creaking": 33,
+      "doorbell": 33,
+      "fire_alarm": 16,
+      "speech": 101,
+      "unknown": 156,
+      "water_running": 50
+    },
+    "unknown_holdout_label_breakdown": {
+      "background": 62,
+      "crying_baby": 31,
+      "door_knock": 69,
+      "door_wood_creaking": 107,
+      "doorbell": 71,
+      "fire_alarm": 12,
+      "speech": 157,
+      "unknown": 485,
+      "water_running": 30
+    },
+    "top_unknown_false_alert_categories": [
+      {
+        "source_category": "Female_singing",
+        "final_label": "speech",
+        "count": 12
+      },
+      {
+        "source_category": "Coin_(dropping)",
+        "final_label": "door_wood_creaking",
+        "count": 9
+      },
+      {
+        "source_category": "Cough",
+        "final_label": "crying_baby",
+        "count": 8
+      },
+      {
+        "source_category": "Crowd",
+        "final_label": "speech",
+        "count": 8
+      },
+      {
+        "source_category": "Cheering",
+        "final_label": "speech",
+        "count": 7
+      },
+      {
+        "source_category": "Bass_guitar",
+        "final_label": "speech",
+        "count": 7
+      },
+      {
+        "source_category": "Crushing",
+        "final_label": "door_wood_creaking",
+        "count": 7
+      },
+      {
+        "source_category": "Fart",
+        "final_label": "door_wood_creaking",
+        "count": 7
+      },
+      {
+        "source_category": "Human_group_actions",
+        "final_label": "speech",
+        "count": 7
+      },
+      {
+        "source_category": "Engine_starting",
+        "final_label": "door_wood_creaking",
+        "count": 6
+      },
+      {
+        "source_category": "Drawer_open_or_close",
+        "final_label": "door_wood_creaking",
+        "count": 6
+      },
+      {
+        "source_category": "Car",
+        "final_label": "door_wood_creaking",
+        "count": 6
+      },
+      {
+        "source_category": "Car_passing_by",
+        "final_label": "speech",
+        "count": 6
+      },
+      {
+        "source_category": "Gasp",
+        "final_label": "crying_baby",
+        "count": 6
+      },
+      {
+        "source_category": "Human_voice",
+        "final_label": "crying_baby",
+        "count": 6
+      }
+    ]
+  },
+  {
+    "name": "best_balanced_score",
+    "description": "Highest overall calibration-stage balanced score.",
+    "candidate_id": 732,
+    "thresholds": {
+      "distance_threshold": 119.4214,
+      "unknown_ratio_threshold": 0.8425,
+      "loudness_floor_dbfs": -58.7
+    },
+    "calibration_validation": {
+      "accuracy": 0.4236,
+      "macro_f1": 0.5046,
+      "macro_recall": 0.4315,
+      "urgent_recall": 0.2544,
+      "background_non_alert_rate": 0.75
+    },
+    "unknown_calibration": {
+      "unknown_precision": 0.7717,
+      "unknown_recall": 0.6074,
+      "unknown_non_alert_rate": 0.6602,
+      "false_alert_rate": 0.3398
+    },
+    "balanced_score": 0.4971,
+    "holdout_known_test": {
+      "accuracy": 0.3883,
+      "macro_f1": 0.4728,
+      "macro_recall": 0.4319,
+      "urgent_recall": 0.3254,
+      "background_non_alert_rate": 0.5156
+    },
+    "holdout_open_set": {
+      "unknown_precision": 0.7491,
+      "unknown_recall": 0.6094,
+      "unknown_non_alert_rate": 0.6553,
+      "false_alert_rate": 0.3447
+    },
+    "known_test_label_breakdown": {
+      "background": 16,
+      "clock_alarm": 13,
+      "crying_baby": 26,
+      "dog_barking": 36,
+      "door_knock": 40,
+      "door_wood_creaking": 21,
+      "doorbell": 26,
+      "fire_alarm": 9,
+      "speech": 84,
+      "unknown": 209,
+      "water_running": 48
+    },
+    "unknown_holdout_label_breakdown": {
+      "background": 47,
+      "crying_baby": 28,
+      "door_knock": 60,
+      "door_wood_creaking": 65,
+      "doorbell": 61,
+      "fire_alarm": 7,
+      "speech": 110,
+      "unknown": 624,
+      "water_running": 22
+    },
+    "top_unknown_false_alert_categories": [
+      {
+        "source_category": "Female_singing",
+        "final_label": "speech",
+        "count": 11
+      },
+      {
+        "source_category": "Coin_(dropping)",
+        "final_label": "door_wood_creaking",
+        "count": 8
+      },
+      {
+        "source_category": "Crowd",
+        "final_label": "speech",
+        "count": 8
+      },
+      {
+        "source_category": "Cough",
+        "final_label": "crying_baby",
+        "count": 7
+      },
+      {
+        "source_category": "Human_group_actions",
+        "final_label": "speech",
+        "count": 7
+      },
+      {
+        "source_category": "Cheering",
+        "final_label": "speech",
+        "count": 7
+      },
+      {
+        "source_category": "Crushing",
+        "final_label": "door_wood_creaking",
+        "count": 6
+      },
+      {
+        "source_category": "Frying_(food)",
+        "final_label": "water_running",
+        "count": 6
+      },
+      {
+        "source_category": "Bass_guitar",
+        "final_label": "speech",
+        "count": 6
+      },
+      {
+        "source_category": "Gasp",
+        "final_label": "crying_baby",
+        "count": 6
+      },
+      {
+        "source_category": "Fill_(with_liquid)",
+        "final_label": "water_running",
+        "count": 5
+      },
+      {
+        "source_category": "Human_voice",
+        "final_label": "crying_baby",
+        "count": 5
+      },
+      {
+        "source_category": "Fart",
+        "final_label": "door_wood_creaking",
+        "count": 5
+      },
+      {
+        "source_category": "Boom",
+        "final_label": "door_knock",
+        "count": 5
+      },
+      {
+        "source_category": "Brass_instrument",
+        "final_label": "doorbell",
+        "count": 5
+      }
+    ]
+  },
+  {
+    "name": "best_known_retention",
+    "description": "Strongest known-set retention on validation before considering open-set gains.",
+    "candidate_id": 952,
+    "thresholds": {
+      "distance_threshold": 175.8489,
+      "unknown_ratio_threshold": 0.9858,
+      "loudness_floor_dbfs": -58.7
+    },
+    "calibration_validation": {
+      "accuracy": 0.5437,
+      "macro_f1": 0.5551,
+      "macro_recall": 0.5365,
+      "urgent_recall": 0.3532,
+      "background_non_alert_rate": 0.4531
+    },
+    "unknown_calibration": {
+      "unknown_precision": 0.7353,
+      "unknown_recall": 0.0977,
+      "unknown_non_alert_rate": 0.2217,
+      "false_alert_rate": 0.7783
+    },
+    "balanced_score": 0.4145,
+    "holdout_known_test": {
+      "accuracy": 0.4962,
+      "macro_f1": 0.5221,
+      "macro_recall": 0.5324,
+      "urgent_recall": 0.4164,
+      "background_non_alert_rate": 0.3281
+    },
+    "holdout_open_set": {
+      "unknown_precision": 0.726,
+      "unknown_recall": 0.1035,
+      "unknown_non_alert_rate": 0.2129,
+      "false_alert_rate": 0.7871
+    },
+    "known_test_label_breakdown": {
+      "background": 28,
+      "clock_alarm": 16,
+      "crying_baby": 29,
+      "dog_barking": 36,
+      "door_knock": 44,
+      "door_wood_creaking": 71,
+      "doorbell": 41,
+      "fire_alarm": 34,
+      "speech": 135,
+      "unknown": 40,
+      "water_running": 54
+    },
+    "unknown_holdout_label_breakdown": {
+      "background": 112,
+      "crying_baby": 36,
+      "dog_barking": 1,
+      "door_knock": 70,
+      "door_wood_creaking": 220,
+      "doorbell": 82,
+      "fire_alarm": 57,
+      "speech": 293,
+      "unknown": 106,
+      "water_running": 47
+    },
+    "top_unknown_false_alert_categories": [
+      {
+        "source_category": "Crowd",
+        "final_label": "speech",
+        "count": 12
+      },
+      {
+        "source_category": "Female_singing",
+        "final_label": "speech",
+        "count": 12
+      },
+      {
+        "source_category": "Car_passing_by",
+        "final_label": "speech",
+        "count": 11
+      },
+      {
+        "source_category": "Crumpling_and_crinkling",
+        "final_label": "door_wood_creaking",
+        "count": 11
+      },
+      {
+        "source_category": "Applause",
+        "final_label": "speech",
+        "count": 11
+      },
+      {
+        "source_category": "Coin_(dropping)",
+        "final_label": "door_wood_creaking",
+        "count": 11
+      },
+      {
+        "source_category": "Electric_guitar",
+        "final_label": "speech",
+        "count": 10
+      },
+      {
+        "source_category": "Engine_starting",
+        "final_label": "door_wood_creaking",
+        "count": 10
+      },
+      {
+        "source_category": "Bird_vocalization_and_bird_call_and_bird_song",
+        "final_label": "speech",
+        "count": 9
+      },
+      {
+        "source_category": "Bird",
+        "final_label": "door_wood_creaking",
+        "count": 9
+      },
+      {
+        "source_category": "Crushing",
+        "final_label": "door_wood_creaking",
+        "count": 9
+      },
+      {
+        "source_category": "Bass_guitar",
+        "final_label": "speech",
+        "count": 9
+      },
+      {
+        "source_category": "Drill",
+        "final_label": "door_wood_creaking",
+        "count": 9
+      },
+      {
+        "source_category": "Fixed-wing_aircraft_and_airplane",
+        "final_label": "speech",
+        "count": 9
+      },
+      {
+        "source_category": "Fart",
+        "final_label": "door_wood_creaking",
+        "count": 9
+      }
+    ]
+  },
+  {
+    "name": "best_unknown_rejection",
+    "description": "Most aggressive unknown rejection while staying near the known-set baseline when possible.",
+    "candidate_id": 10,
+    "thresholds": {
+      "distance_threshold": 29.834,
+      "unknown_ratio_threshold": 0.7839,
+      "loudness_floor_dbfs": -36.2
+    },
+    "calibration_validation": {
+      "accuracy": 0.2489,
+      "macro_f1": 0.2825,
+      "macro_recall": 0.2124,
+      "urgent_recall": 0.0386,
+      "background_non_alert_rate": 0.9062
+    },
+    "unknown_calibration": {
+      "unknown_precision": 0.7363,
+      "unknown_recall": 0.6816,
+      "unknown_non_alert_rate": 0.9053,
+      "false_alert_rate": 0.0947
+    },
+    "balanced_score": 0.3779,
+    "holdout_known_test": {
+      "accuracy": 0.2121,
+      "macro_f1": 0.2652,
+      "macro_recall": 0.2037,
+      "urgent_recall": 0.046,
+      "background_non_alert_rate": 0.8281
+    },
+    "holdout_open_set": {
+      "unknown_precision": 0.7045,
+      "unknown_recall": 0.6846,
+      "unknown_non_alert_rate": 0.9072,
+      "false_alert_rate": 0.0928
+    },
+    "known_test_label_breakdown": {
+      "background": 112,
+      "clock_alarm": 1,
+      "crying_baby": 14,
+      "dog_barking": 19,
+      "door_wood_creaking": 4,
+      "doorbell": 2,
+      "speech": 58,
+      "unknown": 294,
+      "water_running": 24
+    },
+    "unknown_holdout_label_breakdown": {
+      "background": 228,
+      "crying_baby": 7,
+      "door_knock": 4,
+      "door_wood_creaking": 16,
+      "speech": 64,
+      "unknown": 701,
+      "water_running": 4
+    },
+    "top_unknown_false_alert_categories": [
+      {
+        "source_category": "Female_singing",
+        "final_label": "speech",
+        "count": 10
+      },
+      {
+        "source_category": "Human_group_actions",
+        "final_label": "speech",
+        "count": 6
+      },
+      {
+        "source_category": "Cheering",
+        "final_label": "speech",
+        "count": 6
+      },
+      {
+        "source_category": "Crowd",
+        "final_label": "speech",
+        "count": 5
+      },
+      {
+        "source_category": "Giggle",
+        "final_label": "speech",
+        "count": 4
+      },
+      {
+        "source_category": "Applause",
+        "final_label": "speech",
+        "count": 3
+      },
+      {
+        "source_category": "Bass_guitar",
+        "final_label": "speech",
+        "count": 3
+      },
+      {
+        "source_category": "Acoustic_guitar",
+        "final_label": "speech",
+        "count": 3
+      },
+      {
+        "source_category": "Human_voice",
+        "final_label": "crying_baby",
+        "count": 3
+      },
+      {
+        "source_category": "Chuckle_and_chortle",
+        "final_label": "crying_baby",
+        "count": 2
+      },
+      {
+        "source_category": "Chatter",
+        "final_label": "speech",
+        "count": 2
+      },
+      {
+        "source_category": "Chuckle_and_chortle",
+        "final_label": "speech",
+        "count": 2
+      },
+      {
+        "source_category": "Accelerating_and_revving_and_vroom",
+        "final_label": "door_wood_creaking",
+        "count": 2
+      },
+      {
+        "source_category": "Cupboard_open_or_close",
+        "final_label": "door_knock",
+        "count": 2
+      },
+      {
+        "source_category": "Drawer_open_or_close",
+        "final_label": "door_wood_creaking",
+        "count": 2
+      }
+    ]
+  }
+]

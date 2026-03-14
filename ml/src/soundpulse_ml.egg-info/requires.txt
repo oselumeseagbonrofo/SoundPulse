@@ -1,0 +1,11 @@
+ipykernel>=6.29
+jupyter>=1.1
+kagglehub>=0.3
+librosa>=0.10
+matplotlib>=3.8
+numpy>=1.26
+pandas>=2.2
+scikit-learn>=1.4
+seaborn>=0.13
+soundfile>=0.12
+tensorflow>=2.16

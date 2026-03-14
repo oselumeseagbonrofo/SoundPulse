@@ -1,0 +1,34 @@
+{
+  "version": "1.0.0-yamnet-calibrated-fsd50k-2026-03-11",
+  "distance_threshold": 175.8489,
+  "loudness_floor_dbfs": -58.7,
+  "unknown_ratio_threshold": 0.8858,
+  "confidence_tiers": {
+    "high": 0.8,
+    "medium": 0.6,
+    "low": 0.4
+  },
+  "modes": {
+    "general": {
+      "distance_threshold_delta": 0.0,
+      "loudness_floor_delta_db": 0.0,
+      "suppressed_classes": []
+    },
+    "focus": {
+      "distance_threshold_delta": -0.03,
+      "loudness_floor_delta_db": 2.0,
+      "suppressed_classes": [
+        "dog_barking"
+      ]
+    },
+    "sleep": {
+      "distance_threshold_delta": -0.08,
+      "loudness_floor_delta_db": 4.0,
+      "suppressed_classes": [
+        "water_running",
+        "dog_barking",
+        "door_wood_creaking"
+      ]
+    }
+  }
+}
