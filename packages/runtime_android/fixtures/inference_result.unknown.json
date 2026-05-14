@@ -1,0 +1,24 @@
+{
+  "label": "unknown",
+  "distance": 0.96,
+  "confidence": 0.2,
+  "confidence_tier": "low",
+  "top_candidates": [
+    {
+      "label": "doorbell",
+      "distance": 0.96,
+      "confidence": 0.2
+    },
+    {
+      "label": "speech",
+      "distance": 0.99,
+      "confidence": 0.18
+    }
+  ],
+  "flags": {
+    "is_unknown": true,
+    "is_background": false,
+    "speech_pitch_required": false
+  },
+  "speech_pitch": null
+}

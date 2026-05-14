@@ -230,7 +230,7 @@ If the detected class is `speech`, the runtime invokes the pitch-analysis module
   - Sensitive local artifacts should be encrypted at rest where supported by the chosen mobile stack.
   - The recommended storage architecture is:
     - `Isar` for structured local metadata such as prototypes, thresholds, mode settings, class configuration, and event history.
-    - `flutter_secure_storage` for encryption keys and small sensitive configuration values.
+    - `Hive` for keys and small sensitive configuration values.
     - Encrypted local file storage for user-recorded audio samples, with key management backed by Android Keystore through the secure-storage layer.
   - The storage layer must separate audio files from metadata so users can delete recordings without corrupting model configuration.
 
@@ -323,5 +323,5 @@ If the detected class is `speech`, the runtime invokes the pitch-analysis module
     - Role in testing: primary mid-range validation device used for release-candidate tuning, context-manager evaluation, and default-user experience verification.
 - Final choice of encrypted local storage library is fixed as:
   - `Isar` for structured local metadata such as prototypes, thresholds, modes, class configuration, and event history.
-  - `flutter_secure_storage` for encryption keys and sensitive configuration values.
+  - `Hive` for keys and sensitive configuration values.
   - Encrypted local files for stored user-recorded audio samples, referenced from `Isar`.

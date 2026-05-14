@@ -1,0 +1,19 @@
+{
+  "label": "background",
+  "distance": 0.95,
+  "confidence": 0.1,
+  "confidence_tier": "low",
+  "top_candidates": [
+    {
+      "label": "background",
+      "distance": 0.95,
+      "confidence": 0.1
+    }
+  ],
+  "flags": {
+    "is_unknown": false,
+    "is_background": true,
+    "speech_pitch_required": false
+  },
+  "speech_pitch": null
+}
