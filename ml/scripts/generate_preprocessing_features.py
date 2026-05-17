@@ -15,6 +15,9 @@ SRC_DIR = CURRENT_DIR.parent / "src"
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
+ML_ROOT = CURRENT_DIR.parent
+REPO_ROOT = ML_ROOT.parent
+
 from soundpulse_ml.datasets import load_dataset_manifest, manifest_to_dataframe
 from soundpulse_ml.preprocessing import (
     hash_feature_tensor,
@@ -42,6 +45,17 @@ def _load_json(path: Path) -> dict[str, Any]:
 def _load_job_config(path: Path) -> dict[str, Any]:
     payload = _load_json(path)
     return payload
+
+
+def _resolve_workspace_path(raw_path: str | Path) -> Path:
+    path = Path(raw_path)
+    if path.is_absolute():
+        return path.resolve()
+
+    if path.parts and path.parts[0] in {"ml", "packages"}:
+        return (REPO_ROOT / path).resolve()
+
+    return (ML_ROOT / path).resolve()
 
 
 def parse_args() -> argparse.Namespace:
@@ -98,9 +112,9 @@ def resolve_job_config(args: argparse.Namespace) -> GenerationJobConfig:
     if args.job_config is not None:
         config_payload = _load_job_config(args.job_config)
 
-    manifest_path = Path(config_payload.get("manifest", args.manifest))
-    output_dir = Path(config_payload.get("output_dir", args.output_dir))
-    preprocessing_config_path = Path(
+    manifest_path = _resolve_workspace_path(config_payload.get("manifest", args.manifest))
+    output_dir = _resolve_workspace_path(config_payload.get("output_dir", args.output_dir))
+    preprocessing_config_path = _resolve_workspace_path(
         config_payload.get("preprocessing_config", args.preprocessing_config)
     )
     split = config_payload.get("split", args.split)

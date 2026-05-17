@@ -8,6 +8,8 @@ __pycache__/
 *.pyd
 *.swp
 *.swo
+.github/
+
 
 # Python environments and build outputs
 env/
@@ -30,4 +32,3 @@ build/
 android/.gradle/
 android/app/build/
 
-#data

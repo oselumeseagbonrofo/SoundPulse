@@ -1,0 +1,35 @@
+ {
+  "version": "1.0.0",
+  "audio": {
+    "sample_rate_hz": 16000,
+    "channels": 1,
+    "window_duration_ms": 1000,
+    "hop_duration_ms": 1000,
+    "pcm_dtype": "float32"
+  },
+  "stft": {
+    "n_fft": 512,
+    "hop_length": 160,
+    "win_length": 400,
+    "window": "hann",
+    "center": false
+  },
+  "mel": {
+    "n_mels": 64,
+    "f_min_hz": 50,
+    "f_max_hz": 7600,
+    "power": 2.0,
+    "log_offset": 1e-6
+  },
+  "normalization": {
+    "type": "per_example_log_mel",
+    "clip_min_db": -80.0,
+    "clip_max_db": 0.0
+  },
+  "embedding_contract": {
+    "tiny_cnn_dim": 128,
+    "yamnet_dim": 1024
+  }
+}
+
+// Original train results

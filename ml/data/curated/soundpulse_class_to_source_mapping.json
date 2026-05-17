@@ -71,6 +71,6 @@
       "/m/04rlf",
       "/m/02x984l"
     ],
-    "note": "Phase-1 Nigerian noise fallback built from the null background class combinations in sound_data_classes.md."
+    "note": "Excluded from the curated phase-1 dataset; retained only as a runtime/background concept."
   }
 }

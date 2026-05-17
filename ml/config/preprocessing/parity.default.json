@@ -1,7 +1,7 @@
 {
-  "preprocessing_config": "packages/shared_contracts/v1/preprocessing_config.json",
-  "baseline": "ml/evaluation/fixtures/preprocessing_parity_baseline.v1.json",
-  "report_path": "ml/evaluation/preprocessing_parity_report.json",
+  "preprocessing_config": "../packages/shared_contracts/v1/preprocessing_config.json",
+  "baseline": "evaluation/fixtures/preprocessing_parity_baseline.v1.json",
+  "report_path": "evaluation/preprocessing_parity_report.json",
   "atol": 1e-6,
   "rtol": 1e-5
 }

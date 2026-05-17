@@ -22,6 +22,7 @@ DEFAULT_SUMMARY_PATH = CURATED_DATA_DIR / "soundpulse_manifest_summary.csv"
 DEFAULT_SOURCE_MAPPING_PATH = CURATED_DATA_DIR / "soundpulse_class_to_source_mapping.json"
 
 VALID_SPLITS = {"train", "validation", "test"}
+CURATED_EXCLUDED_CLASSES = {"background"}
 
 ESC50_PHASE1_LABEL_MAP = {
     "fireworks": "fire_alarm",
@@ -113,7 +114,7 @@ PHASE1_CLASS_TO_SOURCE_MAPPING = {
     "background": {
         "esc50_categories": [],
         "fsd50k_mids": ["/m/04brg2", "/m/0dxrf", "/m/04rlf", "/m/02x984l"],
-        "note": "Phase-1 Nigerian noise fallback built from the null background class combinations in sound_data_classes.md.",
+        "note": "Excluded from the curated phase-1 dataset; retained only as a runtime/background concept.",
     },
 }
 
@@ -436,6 +437,8 @@ def _build_fsd50k_split_records(
     for row in frame.to_dict(orient="records"):
         class_slug = _resolve_fsd50k_class_slug(row["mids"], row["labels"])
         if class_slug is None:
+            continue
+        if class_slug in CURATED_EXCLUDED_CLASSES:
             continue
 
         audio_path = audio_root / f"{row['fname']}.wav"

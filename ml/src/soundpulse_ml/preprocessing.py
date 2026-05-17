@@ -230,6 +230,8 @@ def waveform_window_to_log_mel(
         window=config.stft.window,
         center=config.stft.center,
     )
+
+    # Converts spectrogram to the same power as the mel spectrogram output, which is necessary for the mel filterbank matrix multiplication to be correct. See librosa's power_to_db implementation for more details: https://librosa.org/doc/main/generated/librosa.power_to_db.html
     power_spectrogram = np.abs(stft_matrix) ** config.mel.power
 
     mel_filter = librosa.filters.mel(

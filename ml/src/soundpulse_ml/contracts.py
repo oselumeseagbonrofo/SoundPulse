@@ -53,12 +53,12 @@ def _validate_bundle(bundle: ContractBundle) -> None:
         raise ValueError("Class slugs must be unique")
 
     audio = bundle.preprocessing.get("audio", {})
-    if audio.get("window_duration_ms") != 1000:
-        raise ValueError("Window duration must remain 1000 ms for the runtime contract")
+    if audio.get("window_duration_ms") != 982:
+        raise ValueError("Window duration must remain 982 ms for the runtime contract")
 
     embedding_contract = bundle.preprocessing.get("embedding_contract", {})
-    if embedding_contract.get("tiny_cnn_dim") != 128:
-        raise ValueError("Tiny CNN embedding dimension contract must be 128")
+    if embedding_contract.get("tiny_cnn_dim") != 1024:
+        raise ValueError("Tiny CNN embedding dimension contract must be 1024")
     if embedding_contract.get("yamnet_dim") != 1024:
         raise ValueError("YAMNet embedding dimension contract must be 1024")
 

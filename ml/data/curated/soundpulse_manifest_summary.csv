@@ -17,7 +17,6 @@ esc50,validation,dog_barking,8
 esc50,validation,door_knock,8
 esc50,validation,door_wood_creaking,8
 esc50,validation,fire_alarm,8
-fsd50k,test,background,2150
 fsd50k,test,crying_baby,30
 fsd50k,test,dog_barking,100
 fsd50k,test,door_knock,98
@@ -26,7 +25,6 @@ fsd50k,test,doorbell,34
 fsd50k,test,fire_alarm,400
 fsd50k,test,speech,693
 fsd50k,test,water_running,168
-fsd50k,train,background,11995
 fsd50k,train,crying_baby,90
 fsd50k,train,dog_barking,352
 fsd50k,train,door_knock,224
@@ -35,7 +33,6 @@ fsd50k,train,doorbell,90
 fsd50k,train,fire_alarm,1077
 fsd50k,train,speech,1318
 fsd50k,train,water_running,237
-fsd50k,validation,background,1213
 fsd50k,validation,crying_baby,17
 fsd50k,validation,dog_barking,61
 fsd50k,validation,door_knock,42
