@@ -12,6 +12,7 @@ This package now includes a concrete Stage-A runtime path plus Stage-B validatio
 - Optional speech-pitch cue generation invoked only on speech detections.
 - LiteRT model-loader and embedding extractor interfaces for TinyCNN/YAMNet backbones.
 - Contract validation tools for inference payload shape and policy invariants.
+- Kotlin runtime verification harness for unit/integration checks.
 - Preprocessing parity fixture checker against shared contract values.
 
 ## Not implemented yet
@@ -30,4 +31,5 @@ Run from repository root:
 python packages/runtime_android/tools/validate_inference_result.py
 python packages/runtime_android/tools/validate_policy_invariants.py
 python packages/runtime_android/tools/check_preprocessing_parity_fixture.py
+python packages/runtime_android/tools/run_runtime_verification.py
 ```
