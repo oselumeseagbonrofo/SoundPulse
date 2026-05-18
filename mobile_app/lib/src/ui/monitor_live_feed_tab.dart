@@ -1,9 +1,15 @@
+import "dart:async";
+import "dart:io";
+import "dart:math" as math;
+
+import "package:audioplayers/audioplayers.dart";
+import "package:flutter/foundation.dart";
 import "package:flutter/material.dart";
 
 import "../models/monitor_history_entry.dart";
 import "monitor_style.dart";
 
-class MonitorLiveFeedTab extends StatelessWidget {
+class MonitorLiveFeedTab extends StatefulWidget {
   const MonitorLiveFeedTab({
     super.key,
     required this.mode,
@@ -22,6 +28,45 @@ class MonitorLiveFeedTab extends StatelessWidget {
   final Future<void> Function(String mode) onModeChanged;
   final Future<void> Function(bool enabled) onContextAwareChanged;
   final VoidCallback onViewAll;
+
+  @override
+  State<MonitorLiveFeedTab> createState() => _MonitorLiveFeedTabState();
+}
+
+class _MonitorLiveFeedTabState extends State<MonitorLiveFeedTab> {
+  final AudioPlayer _audioPlayer = AudioPlayer();
+  StreamSubscription<void>? _playerCompleteSub;
+  String? _playingEntryId;
+  String? _statusMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _playerCompleteSub = _audioPlayer.onPlayerComplete.listen((_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _playingEntryId = null;
+      });
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant MonitorLiveFeedTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final String? playingEntryId = _playingEntryId;
+    if (playingEntryId == null) {
+      return;
+    }
+    final bool stillExists = widget.history.any(
+      (MonitorHistoryEntry entry) => entry.id == playingEntryId,
+    );
+    if (!stillExists) {
+      unawaited(_audioPlayer.stop());
+      _playingEntryId = null;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -74,12 +119,12 @@ class MonitorLiveFeedTab extends StatelessWidget {
                       ),
                     ),
                     Switch.adaptive(
-                      value: contextAware,
+                      value: widget.contextAware,
                       activeThumbColor: monitorPrimary,
                       activeTrackColor:
                           monitorPrimarySoft.withValues(alpha: 0.35),
                       onChanged: (bool enabled) async {
-                        await onContextAwareChanged(enabled);
+                        await widget.onContextAwareChanged(enabled);
                       },
                     ),
                   ],
@@ -87,6 +132,17 @@ class MonitorLiveFeedTab extends StatelessWidget {
               ],
             ),
           ),
+          if (_statusMessage != null) ...<Widget>[
+            const SizedBox(height: 8),
+            Text(
+              _statusMessage!,
+              style: const TextStyle(
+                color: monitorOnSurfaceVariant,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
           const SizedBox(height: 14),
           Row(
             children: <Widget>[
@@ -99,39 +155,39 @@ class MonitorLiveFeedTab extends StatelessWidget {
               ),
               const Spacer(),
               TextButton(
-                onPressed: onViewAll,
+                onPressed: widget.onViewAll,
                 child: const Text("View All",
                     style: TextStyle(color: monitorPrimary, fontSize: 12)),
               ),
             ],
           ),
-          if (history.isEmpty)
+          if (widget.history.isEmpty)
             Container(
               width: double.infinity,
               margin: const EdgeInsets.only(top: 8),
               padding: const EdgeInsets.all(20),
               decoration: monitorRaised(radius: 20),
               child: Text(
-                monitoring
+                widget.monitoring
                     ? "Listening for sounds..."
                     : "Start monitoring to detect sounds",
                 style: const TextStyle(color: monitorOnSurfaceVariant),
               ),
             )
           else
-            ...history.take(6).map(_buildHistoryCard),
+            ...widget.history.take(6).map(_buildHistoryCard),
         ],
       ),
     );
   }
 
   Widget _modeChip(String candidateMode) {
-    final bool selected = mode == candidateMode;
+    final bool selected = widget.mode == candidateMode;
     return Expanded(
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
         onTap: () async {
-          await onModeChanged(candidateMode);
+          await widget.onModeChanged(candidateMode);
         },
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 11),
@@ -153,6 +209,7 @@ class MonitorLiveFeedTab extends StatelessWidget {
 
   Widget _buildHistoryCard(MonitorHistoryEntry entry) {
     final String confidence = "${(entry.event.confidence * 100).round()}%";
+    final bool playing = _playingEntryId == entry.id;
     return Container(
       margin: const EdgeInsets.only(top: 12),
       padding: const EdgeInsets.all(16),
@@ -197,27 +254,137 @@ class MonitorLiveFeedTab extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: monitorPressed(radius: 14),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: List<Widget>.generate(
-                10,
-                (int i) {
-                  final double height = 12 + ((i * 7) % 26).toDouble();
-                  return Container(
-                    width: 5,
-                    height: height,
-                    decoration: BoxDecoration(
-                      color: monitorPrimary.withValues(
-                          alpha: 0.35 + (i % 4 * 0.15)),
-                      borderRadius: BorderRadius.circular(3),
+            child: SizedBox(
+              height: 52,
+              width: double.infinity,
+              child: entry.waveformSamples.isEmpty
+                  ? const Center(
+                      child: Text(
+                        "Waveform unavailable",
+                        style: TextStyle(
+                            color: monitorOnSurfaceVariant, fontSize: 11),
+                      ),
+                    )
+                  : CustomPaint(
+                      painter: _WaveformPainter(entry.waveformSamples),
                     ),
-                  );
-                },
+            ),
+          ),
+          const SizedBox(height: 6),
+          Align(
+            alignment: Alignment.centerRight,
+            child: IconButton(
+              tooltip: playing ? "Stop playback" : "Play detection",
+              onPressed: () async {
+                await _togglePlayback(entry);
+              },
+              icon: Icon(
+                playing
+                    ? Icons.stop_circle_outlined
+                    : Icons.play_circle_outline,
+                color: monitorPrimary,
               ),
             ),
           ),
         ],
       ),
     );
+  }
+
+  Future<void> _togglePlayback(MonitorHistoryEntry entry) async {
+    if (_playingEntryId == entry.id) {
+      await _audioPlayer.stop();
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _playingEntryId = null;
+      });
+      return;
+    }
+
+    if (entry.audioFilePath.isEmpty) {
+      _setStatus("No audio clip is attached to this detection.");
+      return;
+    }
+
+    final File file = File(entry.audioFilePath);
+    if (!await file.exists()) {
+      _setStatus("The saved audio clip for this detection is missing.");
+      return;
+    }
+
+    await _audioPlayer.stop();
+    await _audioPlayer.play(DeviceFileSource(entry.audioFilePath));
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _playingEntryId = entry.id;
+      _statusMessage = null;
+    });
+  }
+
+  void _setStatus(String message) {
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _statusMessage = message;
+    });
+  }
+
+  @override
+  void dispose() {
+    _playerCompleteSub?.cancel();
+    unawaited(_audioPlayer.dispose());
+    super.dispose();
+  }
+}
+
+class _WaveformPainter extends CustomPainter {
+  const _WaveformPainter(this.samples);
+
+  final List<double> samples;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (samples.isEmpty || size.width <= 0 || size.height <= 0) {
+      return;
+    }
+
+    final Paint baselinePaint = Paint()
+      ..color = monitorOnSurfaceVariant.withValues(alpha: 0.25)
+      ..strokeWidth = 1;
+    final Paint waveformPaint = Paint()
+      ..color = monitorPrimary.withValues(alpha: 0.85)
+      ..strokeWidth = 1.8
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+    final double centerY = size.height / 2;
+
+    canvas.drawLine(
+        Offset(0, centerY), Offset(size.width, centerY), baselinePaint);
+
+    final int points = math.max(2, size.width.floor());
+    final Path path = Path();
+    for (int i = 0; i < points; i += 1) {
+      final double x = (i / (points - 1)) * size.width;
+      final int sampleIndex =
+          ((i / (points - 1)) * (samples.length - 1)).round();
+      final double sample = samples[sampleIndex].clamp(-1.0, 1.0);
+      final double y = centerY - (sample * centerY * 0.92);
+      if (i == 0) {
+        path.moveTo(x, y);
+      } else {
+        path.lineTo(x, y);
+      }
+    }
+    canvas.drawPath(path, waveformPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _WaveformPainter oldDelegate) {
+    return !listEquals(oldDelegate.samples, samples);
   }
 }

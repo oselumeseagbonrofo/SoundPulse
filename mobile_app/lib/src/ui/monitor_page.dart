@@ -1,7 +1,9 @@
 import "dart:async";
 import "dart:io";
+import "dart:typed_data";
 
 import "package:flutter/material.dart";
+import "package:path_provider/path_provider.dart";
 
 import "../models/custom_sound_sample.dart";
 import "../models/inference_event.dart";
@@ -81,7 +83,9 @@ class _MonitorPageState extends State<MonitorPage> {
     }
 
     await _runtimeBridge.startMonitoring(mode: _mode);
-    _eventsSub = _runtimeBridge.streamEvents().listen(_onEvent);
+    _eventsSub = _runtimeBridge.streamEvents().listen((InferenceEvent event) {
+      unawaited(_onEvent(event));
+    });
 
     if (!mounted) {
       return;
@@ -92,20 +96,114 @@ class _MonitorPageState extends State<MonitorPage> {
     });
   }
 
-  void _onEvent(InferenceEvent event) {
+  Future<void> _onEvent(InferenceEvent event) async {
     if (!mounted) {
       return;
     }
 
+    if (event.isBackground || event.isUnknown) {
+      return;
+    }
+
+    final String detectionId = DateTime.now().microsecondsSinceEpoch.toString();
+    final DateTime capturedAt = DateTime.now();
+    final List<double> waveformSamples =
+        List<double>.from(event.waveformSamples, growable: false);
+    final String audioFilePath = waveformSamples.isEmpty
+        ? ""
+        : await _persistDetectionAudioClip(detectionId, waveformSamples);
+
+    if (!mounted) {
+      await _deleteDetectionFile(audioFilePath);
+      return;
+    }
+
+    MonitorHistoryEntry? removedEntry;
     setState(() {
-      if (!event.isBackground && !event.isUnknown) {
-        _history.insert(
-            0, MonitorHistoryEntry(event: event, capturedAt: DateTime.now()));
-        if (_history.length > 20) {
-          _history.removeLast();
-        }
+      _history.insert(
+        0,
+        MonitorHistoryEntry(
+          id: detectionId,
+          event: event,
+          capturedAt: capturedAt,
+          waveformSamples: waveformSamples,
+          audioFilePath: audioFilePath,
+        ),
+      );
+      if (_history.length > 20) {
+        removedEntry = _history.removeLast();
       }
     });
+
+    final String pathToDelete = removedEntry?.audioFilePath ?? "";
+    if (pathToDelete.isNotEmpty) {
+      unawaited(_deleteDetectionFile(pathToDelete));
+    }
+  }
+
+  Future<String> _persistDetectionAudioClip(
+      String id, List<double> waveformSamples) async {
+    final Directory appDirectory = await getApplicationDocumentsDirectory();
+    final Directory detectionsDirectory = Directory(
+      "${appDirectory.path}${Platform.pathSeparator}detections",
+    );
+    await detectionsDirectory.create(recursive: true);
+    final String clipPath =
+        "${detectionsDirectory.path}${Platform.pathSeparator}detection_$id.wav";
+    final Uint8List wavBytes = _encodePcm16Wav(waveformSamples);
+    await File(clipPath).writeAsBytes(wavBytes, flush: true);
+    return clipPath;
+  }
+
+  Uint8List _encodePcm16Wav(List<double> samples, {int sampleRateHz = 16000}) {
+    final int numChannels = 1;
+    final int bitsPerSample = 16;
+    final int bytesPerSample = bitsPerSample ~/ 8;
+    final int dataBytes = samples.length * bytesPerSample;
+    final ByteData header = ByteData(44);
+    final Uint8List headerBytes = header.buffer.asUint8List();
+
+    headerBytes.setAll(0, "RIFF".codeUnits);
+    header.setUint32(4, 36 + dataBytes, Endian.little);
+    headerBytes.setAll(8, "WAVE".codeUnits);
+    headerBytes.setAll(12, "fmt ".codeUnits);
+    header.setUint32(16, 16, Endian.little);
+    header.setUint16(20, 1, Endian.little);
+    header.setUint16(22, numChannels, Endian.little);
+    header.setUint32(24, sampleRateHz, Endian.little);
+    header.setUint32(
+      28,
+      sampleRateHz * numChannels * bytesPerSample,
+      Endian.little,
+    );
+    header.setUint16(32, numChannels * bytesPerSample, Endian.little);
+    header.setUint16(34, bitsPerSample, Endian.little);
+    headerBytes.setAll(36, "data".codeUnits);
+    header.setUint32(40, dataBytes, Endian.little);
+
+    final ByteData pcmData = ByteData(dataBytes);
+    for (int i = 0; i < samples.length; i += 1) {
+      final double clamped = samples[i].clamp(-1.0, 1.0);
+      final int value = (clamped * 32767.0).round();
+      pcmData.setInt16(i * bytesPerSample, value, Endian.little);
+    }
+
+    return Uint8List.fromList(
+      <int>[
+        ...headerBytes,
+        ...pcmData.buffer.asUint8List(),
+      ],
+    );
+  }
+
+  Future<void> _deleteDetectionFile(String filePath) async {
+    if (filePath.isEmpty) {
+      return;
+    }
+    final File file = File(filePath);
+    if (await file.exists()) {
+      await file.delete();
+    }
   }
 
   Future<void> _changeMode(String mode) async {
@@ -203,6 +301,11 @@ class _MonitorPageState extends State<MonitorPage> {
 
   @override
   void dispose() {
+    for (final MonitorHistoryEntry entry in _history) {
+      if (entry.audioFilePath.isNotEmpty) {
+        unawaited(_deleteDetectionFile(entry.audioFilePath));
+      }
+    }
     if (_monitoring) {
       _runtimeBridge.stopMonitoring();
     }

@@ -60,8 +60,8 @@ class MainActivity : FlutterActivity() {
                         val rawSamples = call.argument<List<Number>>("samples").orEmpty()
                         val samples = FloatArray(rawSamples.size) { index -> rawSamples[index].toFloat() }
                         val results = runtimeEngine.pushAudioPcm(samples)
-                        dispatchResults(results)
-                        result.success(results.map(::toPayload))
+                        dispatchResults(results, samples)
+                        result.success(results.map { item -> toPayload(item, samples) })
                     }
 
                     else -> result.notImplemented()
@@ -107,7 +107,7 @@ class MainActivity : FlutterActivity() {
                         override fun run() {
                             val chunk = buildSyntheticFrame()
                             val results = runtimeEngine.pushAudioPcm(chunk)
-                            dispatchResults(results)
+                            dispatchResults(results, chunk)
                         }
                     },
                     0L,
@@ -143,24 +143,25 @@ class MainActivity : FlutterActivity() {
         return chunk
     }
 
-    private fun dispatchResults(results: List<InferenceResult>) {
+    private fun dispatchResults(results: List<InferenceResult>, frameSamples: FloatArray?) {
         if (results.isEmpty()) {
             return
         }
         mainHandler.post {
             val sink = eventSink ?: return@post
             results.forEach { result ->
-                sink.success(toPayload(result))
+                sink.success(toPayload(result, frameSamples))
             }
         }
     }
 
-    private fun toPayload(result: InferenceResult): Map<String, Any?> {
+    private fun toPayload(result: InferenceResult, frameSamples: FloatArray? = null): Map<String, Any?> {
         return mapOf(
             "label" to result.label,
             "distance" to result.distance.toDouble(),
             "confidence" to result.confidence.toDouble(),
             "confidence_tier" to result.confidenceTier,
+            "waveform_samples" to (frameSamples?.map { sample -> sample.toDouble() }.orEmpty()),
             "top_candidates" to
                 result.topCandidates.map { candidate ->
                     mapOf(
