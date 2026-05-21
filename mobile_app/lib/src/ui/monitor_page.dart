@@ -4,6 +4,7 @@ import "dart:typed_data";
 
 import "package:flutter/material.dart";
 import "package:path_provider/path_provider.dart";
+import "package:record/record.dart";
 
 import "../models/custom_sound_sample.dart";
 import "../models/inference_event.dart";
@@ -27,6 +28,7 @@ class _MonitorPageState extends State<MonitorPage> {
   final LocalStorageService _storageService = LocalStorageService();
   final List<MonitorHistoryEntry> _history = <MonitorHistoryEntry>[];
   final List<CustomSoundSample> _recordedSounds = <CustomSoundSample>[];
+  final AudioRecorder _audioRecorder = AudioRecorder();
 
   StreamSubscription<InferenceEvent>? _eventsSub;
 
@@ -82,6 +84,13 @@ class _MonitorPageState extends State<MonitorPage> {
       return;
     }
 
+    final bool permissionGranted = await _audioRecorder.hasPermission();
+    if (!permissionGranted) {
+      _showErrorSnackBar(
+          "Microphone permission is required to monitor sounds.");
+      return;
+    }
+
     await _runtimeBridge.startMonitoring(mode: _mode);
     _eventsSub = _runtimeBridge.streamEvents().listen((InferenceEvent event) {
       unawaited(_onEvent(event));
@@ -94,6 +103,19 @@ class _MonitorPageState extends State<MonitorPage> {
     setState(() {
       _monitoring = true;
     });
+  }
+
+  void _showErrorSnackBar(String message) {
+    if (!mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        duration: const Duration(seconds: 3),
+        backgroundColor: const Color(0xFFB00020),
+      ),
+    );
   }
 
   Future<void> _onEvent(InferenceEvent event) async {
@@ -306,6 +328,7 @@ class _MonitorPageState extends State<MonitorPage> {
         unawaited(_deleteDetectionFile(entry.audioFilePath));
       }
     }
+    unawaited(_audioRecorder.dispose());
     if (_monitoring) {
       _runtimeBridge.stopMonitoring();
     }

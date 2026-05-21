@@ -1,32 +1,40 @@
 package com.example.soundpulse_mobile
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.media.AudioFormat
+import android.media.AudioRecord
+import android.media.MediaRecorder
 import com.soundpulse.runtime.InferenceResult
 import com.soundpulse.runtime.Mode
 import com.soundpulse.runtime.RuntimeEngine
 import com.soundpulse.runtime.StubRuntimeEngine
 import android.os.Handler
 import android.os.Looper
+import androidx.core.content.ContextCompat
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
-import java.util.Timer
-import java.util.TimerTask
-import kotlin.math.PI
-import kotlin.math.sin
 
 class MainActivity : FlutterActivity() {
     private val methodChannelName = "soundpulse.runtime/methods"
     private val eventChannelName = "soundpulse.runtime/events"
     private val mainHandler = Handler(Looper.getMainLooper())
+    private val monitoringLock = Any()
+    private val sampleRateHz = 16_000
+    private val captureChunkSamples = 1024
+    private val channelConfig = AudioFormat.CHANNEL_IN_MONO
+    private val audioFormat = AudioFormat.ENCODING_PCM_16BIT
 
     private val runtimeEngine: RuntimeEngine = StubRuntimeEngine()
 
     private var eventSink: EventChannel.EventSink? = null
     private var mode: Mode = Mode.GENERAL
     private var contextAware: Boolean = false
-    private var monitoringTimer: Timer? = null
-    private var syntheticFrameIndex: Int = 0
+    private var audioRecord: AudioRecord? = null
+    private var captureThread: Thread? = null
+    @Volatile private var captureRunning: Boolean = false
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -36,8 +44,12 @@ class MainActivity : FlutterActivity() {
                 when (call.method) {
                     "startMonitoring" -> {
                         mode = parseMode(call.argument<String>("mode"))
-                        startMonitoring()
-                        result.success(null)
+                        val startError = startMonitoring()
+                        if (startError == null) {
+                            result.success(null)
+                        } else {
+                            result.error(startError.code, startError.message, null)
+                        }
                     }
 
                     "stopMonitoring" -> {
@@ -95,52 +107,132 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun startMonitoring() {
-        stopMonitoring()
-        syntheticFrameIndex = 0
-        runtimeEngine.start(mode)
-
-        monitoringTimer =
-            Timer("soundpulse-runtime-feed", false).apply {
-                scheduleAtFixedRate(
-                    object : TimerTask() {
-                        override fun run() {
-                            val chunk = buildSyntheticFrame()
-                            val results = runtimeEngine.pushAudioPcm(chunk)
-                            dispatchResults(results, chunk)
-                        }
-                    },
-                    0L,
-                    500L,
+    private fun startMonitoring(): StartMonitoringError? {
+        synchronized(monitoringLock) {
+            stopMonitoringLocked()
+            if (!hasRecordAudioPermission()) {
+                return StartMonitoringError(
+                    "record_audio_permission_denied",
+                    "RECORD_AUDIO permission is required to start monitoring.",
                 )
             }
+            val minBufferSize = AudioRecord.getMinBufferSize(sampleRateHz, channelConfig, audioFormat)
+            if (minBufferSize <= 0) {
+                return StartMonitoringError(
+                    "audio_record_init_failed",
+                    "Unable to initialize microphone capture.",
+                )
+            }
+            val bufferSizeInBytes = maxOf(minBufferSize, captureChunkSamples * 2)
+            val recorder =
+                AudioRecord(
+                    MediaRecorder.AudioSource.MIC,
+                    sampleRateHz,
+                    channelConfig,
+                    audioFormat,
+                    bufferSizeInBytes,
+                )
+            if (recorder.state != AudioRecord.STATE_INITIALIZED) {
+                recorder.release()
+                return StartMonitoringError(
+                    "audio_record_init_failed",
+                    "Microphone is not available for live monitoring.",
+                )
+            }
+            try {
+                recorder.startRecording()
+            } catch (_: IllegalStateException) {
+                recorder.release()
+                return StartMonitoringError(
+                    "audio_record_start_failed",
+                    "Failed to start microphone capture.",
+                )
+            }
+
+            runtimeEngine.start(mode)
+            captureRunning = true
+            audioRecord = recorder
+            val worker =
+                Thread(
+                    { captureLoop(recorder) },
+                    "soundpulse-runtime-feed",
+                ).apply { isDaemon = true }
+            captureThread = worker
+            worker.start()
+            return null
+        }
     }
 
     private fun stopMonitoring() {
-        monitoringTimer?.cancel()
-        monitoringTimer = null
+        synchronized(monitoringLock) {
+            stopMonitoringLocked()
+        }
+    }
+
+    private fun stopMonitoringLocked() {
+        captureRunning = false
+        val recorder = audioRecord
+        audioRecord = null
+        val worker = captureThread
+        captureThread = null
+
+        if (recorder != null) {
+            if (recorder.recordingState == AudioRecord.RECORDSTATE_RECORDING) {
+                try {
+                    recorder.stop()
+                } catch (_: IllegalStateException) {
+                }
+            }
+            recorder.release()
+        }
+        worker?.interrupt()
         runtimeEngine.stop()
     }
 
-    private fun buildSyntheticFrame(): FloatArray {
-        val frameLength = 1024
-        val frequencyHz = if (contextAware && mode == Mode.SLEEP) 180.0 else 420.0
-        val amplitude =
-            when (mode) {
-                Mode.SLEEP -> 0.15f
-                Mode.FOCUS -> 0.28f
-                Mode.GENERAL -> 0.45f
+    private fun captureLoop(recorder: AudioRecord) {
+        val readBuffer = ShortArray(captureChunkSamples)
+        while (captureRunning) {
+            val samplesRead = recorder.read(readBuffer, 0, readBuffer.size, AudioRecord.READ_BLOCKING)
+            if (samplesRead <= 0) {
+                if (!captureRunning) {
+                    break
+                }
+                if (samplesRead == AudioRecord.ERROR_DEAD_OBJECT) {
+                    dispatchMonitoringError("audio_record_error", "Microphone capture was interrupted.")
+                    break
+                }
+                if (samplesRead == AudioRecord.ERROR_BAD_VALUE || samplesRead == AudioRecord.ERROR_INVALID_OPERATION) {
+                    dispatchMonitoringError(
+                        "audio_record_error",
+                        "Microphone capture failed with code $samplesRead.",
+                    )
+                    break
+                }
+                continue
             }
-        val sampleRateHz = 16_000.0
-        val phaseStart = syntheticFrameIndex * frameLength
-        val chunk =
-            FloatArray(frameLength) { index ->
-                val position = phaseStart + index
-                val phase = (2.0 * PI * frequencyHz * position) / sampleRateHz
-                (sin(phase) * amplitude).toFloat()
+            val frameSamples =
+                FloatArray(samplesRead) { index ->
+                    (readBuffer[index] / 32768.0f).coerceIn(-1.0f, 1.0f)
+                }
+            val results = runtimeEngine.pushAudioPcm(frameSamples)
+            dispatchResults(results, frameSamples)
+        }
+        synchronized(monitoringLock) {
+            if (audioRecord === recorder) {
+                stopMonitoringLocked()
             }
-        syntheticFrameIndex += 1
-        return chunk
+        }
+    }
+
+    private fun hasRecordAudioPermission(): Boolean {
+        return ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) ==
+            PackageManager.PERMISSION_GRANTED
+    }
+
+    private fun dispatchMonitoringError(code: String, message: String) {
+        mainHandler.post {
+            eventSink?.error(code, message, null)
+        }
     }
 
     private fun dispatchResults(results: List<InferenceResult>, frameSamples: FloatArray?) {
@@ -185,4 +277,9 @@ class MainActivity : FlutterActivity() {
                 },
         )
     }
+
+    private data class StartMonitoringError(
+        val code: String,
+        val message: String,
+    )
 }
