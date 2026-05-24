@@ -1,6 +1,8 @@
 import "dart:async";
+import "dart:io";
 
 import "package:flutter/services.dart";
+import "package:path_provider/path_provider.dart";
 
 import "../models/inference_event.dart";
 
@@ -19,8 +21,57 @@ class RuntimeBridge {
     });
   }
 
-  Future<void> startMonitoring({required String mode}) {
-    return _methods.invokeMethod<void>("startMonitoring", <String, dynamic>{"mode": mode});
+  Future<String> _copyAssetToLocalFile(String assetPath, String localFileName) async {
+    final directory = await getApplicationDocumentsDirectory();
+    final localFile = File("${directory.path}/$localFileName");
+    final data = await rootBundle.load(assetPath);
+    final bytes = data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes);
+    await localFile.writeAsBytes(bytes, flush: true);
+    return localFile.path;
+  }
+
+  Future<void> startMonitoring({required String mode, required String backbone}) async {
+    // 1. Copy common configs to local files
+    final String classLabelsPath = await _copyAssetToLocalFile(
+      "assets/config/class_labels.json",
+      "class_labels.json",
+    );
+    final String preprocessingConfigPath = await _copyAssetToLocalFile(
+      "assets/config/preprocessing_config.json",
+      "preprocessing_config.json",
+    );
+    final String thresholdDefaultsPath = await _copyAssetToLocalFile(
+      "assets/config/threshold_defaults.json",
+      "threshold_defaults.json",
+    );
+
+    // 2. Copy backbone-specific files to local files
+    final String modelAsset = backbone == "tiny_cnn"
+        ? "assets/models/tiny_cnn/tinycnn_embedding.tflite"
+        : "assets/models/yamnet/yamnet_embedding.tflite";
+    final String protoAsset = backbone == "tiny_cnn"
+        ? "assets/models/tiny_cnn/prototype_store.json"
+        : "assets/models/yamnet/prototype_store.json";
+
+    final String modelPath = await _copyAssetToLocalFile(
+      modelAsset,
+      "${backbone}_embedding.tflite",
+    );
+    final String prototypeStorePath = await _copyAssetToLocalFile(
+      protoAsset,
+      "prototype_store_$backbone.json",
+    );
+
+    // 3. Invoke native monitoring with all the paths
+    return _methods.invokeMethod<void>("startMonitoring", <String, dynamic>{
+      "mode": mode,
+      "backbone": backbone,
+      "modelPath": modelPath,
+      "classLabelsPath": classLabelsPath,
+      "preprocessingConfigPath": preprocessingConfigPath,
+      "thresholdDefaultsPath": thresholdDefaultsPath,
+      "prototypeStorePath": prototypeStorePath,
+    });
   }
 
   Future<void> stopMonitoring() {

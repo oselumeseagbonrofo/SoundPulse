@@ -23,3 +23,11 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/config/class_labels.json
+    - assets/config/preprocessing_config.json
+    - assets/config/threshold_defaults.json
+    - assets/models/tiny_cnn/tinycnn_embedding.tflite
+    - assets/models/tiny_cnn/prototype_store.json
+    - assets/models/yamnet/yamnet_embedding.tflite
+    - assets/models/yamnet/prototype_store.json

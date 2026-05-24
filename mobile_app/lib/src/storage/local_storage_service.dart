@@ -10,6 +10,7 @@ class LocalStorageService {
   static const String _recordingsBoxName = "soundpulse.recordings";
   static const String _modeKey = "soundpulse.mode";
   static const String _contextAwareKey = "soundpulse.context_aware";
+  static const String _backboneKey = "soundpulse.backbone";
   static const String _recordedSoundsKey = "soundpulse.recorded_sounds";
 
   Box<dynamic>? _settingsBox() {
@@ -44,6 +45,15 @@ class LocalStorageService {
   Future<bool> readContextAware() async {
     final box = _settingsBox();
     return box?.get(_contextAwareKey, defaultValue: false) as bool? ?? false;
+  }
+
+  Future<void> saveBackbone(String backbone) {
+    return Future.sync(() => _settingsBox()?.put(_backboneKey, backbone));
+  }
+
+  Future<String> readBackbone() async {
+    final box = _settingsBox();
+    return box?.get(_backboneKey, defaultValue: "yamnet") as String? ?? "yamnet";
   }
 
   Future<List<CustomSoundSample>> readRecordedSounds() async {

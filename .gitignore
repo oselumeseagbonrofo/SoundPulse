@@ -32,3 +32,5 @@ build/
 android/.gradle/
 android/app/build/
 
+# Mobile app assets
+mobile_app/assets

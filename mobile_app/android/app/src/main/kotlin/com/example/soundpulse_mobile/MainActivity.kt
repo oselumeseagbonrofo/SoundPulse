@@ -8,7 +8,11 @@ import android.media.MediaRecorder
 import com.soundpulse.runtime.InferenceResult
 import com.soundpulse.runtime.Mode
 import com.soundpulse.runtime.RuntimeEngine
-import com.soundpulse.runtime.StubRuntimeEngine
+import com.soundpulse.runtime.LiteRtRuntimeFactory
+import com.soundpulse.runtime.RuntimeArtifactLoader
+import com.soundpulse.runtime.LiteRtModelLoader
+import com.soundpulse.runtime.RuntimeBackbone
+import com.soundpulse.runtime.LiteRtEmbeddingExtractor
 import android.os.Handler
 import android.os.Looper
 import androidx.core.content.ContextCompat
@@ -27,7 +31,7 @@ class MainActivity : FlutterActivity() {
     private val channelConfig = AudioFormat.CHANNEL_IN_MONO
     private val audioFormat = AudioFormat.ENCODING_PCM_16BIT
 
-    private val runtimeEngine: RuntimeEngine = StubRuntimeEngine()
+    private var runtimeEngine: RuntimeEngine? = null
 
     private var eventSink: EventChannel.EventSink? = null
     private var mode: Mode = Mode.GENERAL
@@ -44,7 +48,58 @@ class MainActivity : FlutterActivity() {
                 when (call.method) {
                     "startMonitoring" -> {
                         mode = parseMode(call.argument<String>("mode"))
-                        val startError = startMonitoring()
+                        val backbone = call.argument<String>("backbone") ?: "tiny_cnn"
+                        val modelPath = call.argument<String>("modelPath")
+                        val classLabelsPath = call.argument<String>("classLabelsPath")
+                        val preprocessingConfigPath = call.argument<String>("preprocessingConfigPath")
+                        val thresholdDefaultsPath = call.argument<String>("thresholdDefaultsPath")
+                        val prototypeStorePath = call.argument<String>("prototypeStorePath")
+
+                        val startError = if (modelPath != null && classLabelsPath != null &&
+                            preprocessingConfigPath != null && thresholdDefaultsPath != null &&
+                            prototypeStorePath != null) {
+                            try {
+                                val classFile = java.io.File(classLabelsPath)
+                                val preprocessingFile = java.io.File(preprocessingConfigPath)
+                                val thresholdFile = java.io.File(thresholdDefaultsPath)
+                                val prototypeFile = java.io.File(prototypeStorePath)
+
+                                if (!classFile.exists() || !preprocessingFile.exists() || !thresholdFile.exists() || !prototypeFile.exists()) {
+                                    StartMonitoringError("missing_files", "One or more configuration files do not exist.")
+                                } else {
+                                    val artifacts = RuntimeArtifactLoader.fromFiles(
+                                        classFile,
+                                        preprocessingFile,
+                                        thresholdFile,
+                                        prototypeFile
+                                    )
+                                    val modelFile = java.io.File(modelPath)
+                                    if (!modelFile.exists()) {
+                                        StartMonitoringError("missing_model", "TFLite model file does not exist.")
+                                    } else {
+                                        val interpreter = LiteRtModelLoader.loadInterpreter(modelFile)
+                                        val activeBackbone = if (backbone.lowercase() == "yamnet") {
+                                            RuntimeBackbone.YAMNET
+                                        } else {
+                                            RuntimeBackbone.TINY_CNN
+                                        }
+                                        val embeddingDim = if (activeBackbone == RuntimeBackbone.YAMNET) {
+                                            artifacts.preprocessing.yamnetEmbeddingDim
+                                        } else {
+                                            artifacts.preprocessing.tinyCnnEmbeddingDim
+                                        }
+                                        val extractor = LiteRtEmbeddingExtractor(interpreter, embeddingDim)
+                                        runtimeEngine = LiteRtRuntimeFactory.createFromArtifacts(artifacts, extractor)
+                                        startMonitoring()
+                                    }
+                                }
+                            } catch (e: Exception) {
+                                StartMonitoringError("engine_init_failed", "Failed to initialize ML engine: ${e.message}")
+                            }
+                        } else {
+                            StartMonitoringError("invalid_arguments", "Missing file paths for engine initialization.")
+                        }
+
                         if (startError == null) {
                             result.success(null)
                         } else {
@@ -59,7 +114,7 @@ class MainActivity : FlutterActivity() {
 
                     "updateMode" -> {
                         mode = parseMode(call.argument<String>("mode"))
-                        runtimeEngine.updateMode(mode)
+                        runtimeEngine?.updateMode(mode)
                         result.success(null)
                     }
 
@@ -71,7 +126,7 @@ class MainActivity : FlutterActivity() {
                     "pushAudioPcm" -> {
                         val rawSamples = call.argument<List<Number>>("samples").orEmpty()
                         val samples = FloatArray(rawSamples.size) { index -> rawSamples[index].toFloat() }
-                        val results = runtimeEngine.pushAudioPcm(samples)
+                        val results = runtimeEngine?.pushAudioPcm(samples).orEmpty()
                         dispatchResults(results, samples)
                         result.success(results.map { item -> toPayload(item, samples) })
                     }
@@ -149,7 +204,7 @@ class MainActivity : FlutterActivity() {
                 )
             }
 
-            runtimeEngine.start(mode)
+            runtimeEngine?.start(mode)
             captureRunning = true
             audioRecord = recorder
             val worker =
@@ -186,7 +241,7 @@ class MainActivity : FlutterActivity() {
             recorder.release()
         }
         worker?.interrupt()
-        runtimeEngine.stop()
+        runtimeEngine?.stop()
     }
 
     private fun captureLoop(recorder: AudioRecord) {
@@ -214,8 +269,13 @@ class MainActivity : FlutterActivity() {
                 FloatArray(samplesRead) { index ->
                     (readBuffer[index] / 32768.0f).coerceIn(-1.0f, 1.0f)
                 }
-            val results = runtimeEngine.pushAudioPcm(frameSamples)
-            dispatchResults(results, frameSamples)
+            try {
+                val results = runtimeEngine?.pushAudioPcm(frameSamples).orEmpty()
+                dispatchResults(results, frameSamples)
+            } catch (e: Exception) {
+                dispatchMonitoringError("inference_error", e.message ?: "Inference execution failed.")
+                break
+            }
         }
         synchronized(monitoringLock) {
             if (audioRecord === recorder) {

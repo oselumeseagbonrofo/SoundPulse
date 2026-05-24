@@ -13,19 +13,23 @@ class MonitorLiveFeedTab extends StatefulWidget {
   const MonitorLiveFeedTab({
     super.key,
     required this.mode,
+    required this.backbone,
     required this.contextAware,
     required this.monitoring,
     required this.history,
     required this.onModeChanged,
+    required this.onBackboneChanged,
     required this.onContextAwareChanged,
     required this.onViewAll,
   });
 
   final String mode;
+  final String backbone;
   final bool contextAware;
   final bool monitoring;
   final List<MonitorHistoryEntry> history;
   final Future<void> Function(String mode) onModeChanged;
+  final Future<void> Function(String backbone) onBackboneChanged;
   final Future<void> Function(bool enabled) onContextAwareChanged;
   final VoidCallback onViewAll;
 
@@ -104,6 +108,22 @@ class _MonitorLiveFeedTabState extends State<MonitorLiveFeedTab> {
                     _modeChip("focus"),
                     const SizedBox(width: 8),
                     _modeChip("sleep"),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                const Text(
+                  "Active ML Model",
+                  style: TextStyle(
+                      color: monitorOnSurfaceVariant,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: <Widget>[
+                    _backboneChip("tiny_cnn", "TinyCNN (256-D)"),
+                    const SizedBox(width: 8),
+                    _backboneChip("yamnet", "YAMNet (1024-D)"),
                   ],
                 ),
                 const SizedBox(height: 14),
@@ -195,6 +215,32 @@ class _MonitorLiveFeedTabState extends State<MonitorLiveFeedTab> {
               selected ? monitorPressed(radius: 12) : monitorRaised(radius: 12),
           child: Text(
             monitorLabelForMode(candidateMode),
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: selected ? monitorPrimary : monitorOnSurfaceVariant,
+              fontWeight: FontWeight.w600,
+              fontSize: 12,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _backboneChip(String candidateBackbone, String label) {
+    final bool selected = widget.backbone == candidateBackbone;
+    return Expanded(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () async {
+          await widget.onBackboneChanged(candidateBackbone);
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 11),
+          decoration:
+              selected ? monitorPressed(radius: 12) : monitorRaised(radius: 12),
+          child: Text(
+            label,
             textAlign: TextAlign.center,
             style: TextStyle(
               color: selected ? monitorPrimary : monitorOnSurfaceVariant,

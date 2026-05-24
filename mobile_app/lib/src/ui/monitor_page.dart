@@ -35,6 +35,7 @@ class _MonitorPageState extends State<MonitorPage> {
   bool _monitoring = false;
   bool _contextAware = false;
   String _mode = "general";
+  String _backbone = "yamnet";
   int _tabIndex = 0;
 
   @override
@@ -45,15 +46,18 @@ class _MonitorPageState extends State<MonitorPage> {
 
   Future<void> _loadPreferences() async {
     String storedMode = "general";
+    String storedBackbone = "yamnet";
     bool storedContextAware = false;
     List<CustomSoundSample> storedSounds = const <CustomSoundSample>[];
 
     try {
       storedMode = await _storageService.readMode();
+      storedBackbone = await _storageService.readBackbone();
       storedContextAware = await _storageService.readContextAware();
       storedSounds = await _storageService.readRecordedSounds();
     } catch (_) {
       storedMode = "general";
+      storedBackbone = "yamnet";
       storedContextAware = false;
       storedSounds = const <CustomSoundSample>[];
     }
@@ -64,6 +68,7 @@ class _MonitorPageState extends State<MonitorPage> {
 
     setState(() {
       _mode = storedMode;
+      _backbone = storedBackbone;
       _contextAware = storedContextAware;
       _recordedSounds
         ..clear()
@@ -91,7 +96,12 @@ class _MonitorPageState extends State<MonitorPage> {
       return;
     }
 
-    await _runtimeBridge.startMonitoring(mode: _mode);
+    try {
+      await _runtimeBridge.startMonitoring(mode: _mode, backbone: _backbone);
+    } catch (e) {
+      _showErrorSnackBar("Failed to initialize ML engine: $e");
+      return;
+    }
     _eventsSub = _runtimeBridge.streamEvents().listen((InferenceEvent event) {
       unawaited(_onEvent(event));
     });
@@ -239,6 +249,28 @@ class _MonitorPageState extends State<MonitorPage> {
     setState(() {
       _mode = mode;
     });
+  }
+
+  Future<void> _changeBackbone(String backbone) async {
+    await _storageService.saveBackbone(backbone);
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _backbone = backbone;
+    });
+
+    if (_monitoring) {
+      try {
+        await _runtimeBridge.stopMonitoring();
+        await _runtimeBridge.startMonitoring(mode: _mode, backbone: backbone);
+      } catch (e) {
+        _showErrorSnackBar("Failed to dynamically switch model: $e");
+        setState(() {
+          _monitoring = false;
+        });
+      }
+    }
   }
 
   Future<void> _setContextAware(bool enabled) async {
@@ -429,10 +461,12 @@ class _MonitorPageState extends State<MonitorPage> {
               children: <Widget>[
                 MonitorLiveFeedTab(
                   mode: _mode,
+                  backbone: _backbone,
                   contextAware: _contextAware,
                   monitoring: _monitoring,
                   history: _history,
                   onModeChanged: _changeMode,
+                  onBackboneChanged: _changeBackbone,
                   onContextAwareChanged: _setContextAware,
                   onViewAll: () => setState(() => _tabIndex = 1),
                 ),

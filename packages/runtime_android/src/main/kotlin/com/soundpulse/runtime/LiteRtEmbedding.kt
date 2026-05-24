@@ -59,6 +59,14 @@ private class ReflectionLiteRtInterpreter(
     private val interpreterClass: Class<*>
     private val interpreterInstance: Any
     private val runMethod: java.lang.reflect.Method
+    private val getInputTensorMethod: java.lang.reflect.Method
+    private val getOutputTensorMethod: java.lang.reflect.Method
+    private val resizeInputMethod: java.lang.reflect.Method
+    private val allocateTensorsMethod: java.lang.reflect.Method
+    private val tensorClass: Class<*>
+    private val shapeMethod: java.lang.reflect.Method
+
+    private var lastInputSize: Int = -1
 
     init {
         interpreterClass = Class.forName("org.tensorflow.lite.Interpreter")
@@ -72,9 +80,57 @@ private class ReflectionLiteRtInterpreter(
         val constructor = interpreterClass.getConstructor(ByteBuffer::class.java)
         interpreterInstance = constructor.newInstance(buffer)
         runMethod = interpreterClass.getMethod("run", Any::class.java, Any::class.java)
+
+        getInputTensorMethod = interpreterClass.getMethod("getInputTensor", Int::class.javaPrimitiveType)
+        getOutputTensorMethod = interpreterClass.getMethod("getOutputTensor", Int::class.javaPrimitiveType)
+        resizeInputMethod = interpreterClass.getMethod("resizeInput", Int::class.javaPrimitiveType, IntArray::class.java)
+        allocateTensorsMethod = interpreterClass.getMethod("allocateTensors")
+        tensorClass = Class.forName("org.tensorflow.lite.Tensor")
+        shapeMethod = tensorClass.getMethod("shape")
     }
 
     override fun run(input: FloatArray, output: FloatArray) {
-        runMethod.invoke(interpreterInstance, input, output)
+        val inputTensor = getInputTensorMethod.invoke(interpreterInstance, 0)
+        val inputShape = shapeMethod.invoke(inputTensor) as IntArray
+
+        if (inputShape.size == 4) {
+            // TinyCNN expects 4D input [1, 128, 128, 3] representing log-mel RGB spectrogram
+            throw IllegalArgumentException(
+                "TinyCNN expects a 4D log-mel spectrogram input of shape [1, 128, 128, 3], but a 1D raw waveform was provided. " +
+                "The on-device DSP pipeline (STFT + log-mel spectrogram feature extraction) is not yet implemented in this package. " +
+                "Please select YAMNet as the active backbone model in the Live Feed tab settings."
+            )
+        }
+
+        if (inputShape.size == 1) {
+            val currentShapeVal = inputShape[0]
+            if (input.size != currentShapeVal || input.size != lastInputSize) {
+                resizeInputMethod.invoke(interpreterInstance, 0, intArrayOf(input.size))
+                allocateTensorsMethod.invoke(interpreterInstance)
+                lastInputSize = input.size
+            }
+        }
+
+        val outputTensor = getOutputTensorMethod.invoke(interpreterInstance, 0)
+        val outputShape = shapeMethod.invoke(outputTensor) as IntArray
+
+        if (outputShape.size == 2) {
+            val numFrames = outputShape[0]
+            val embeddingDim = outputShape[1]
+            val tempOutput = Array(numFrames) { FloatArray(embeddingDim) }
+
+            runMethod.invoke(interpreterInstance, input, tempOutput)
+
+            // Average along the first dimension (frames) and copy to output
+            for (j in 0 until minOf(embeddingDim, output.size)) {
+                var sum = 0f
+                for (i in 0 until numFrames) {
+                    sum += tempOutput[i][j]
+                }
+                output[j] = sum / numFrames
+            }
+        } else {
+            runMethod.invoke(interpreterInstance, input, output)
+        }
     }
 }

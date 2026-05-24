@@ -124,66 +124,6 @@ class LiteRtRuntimeEngine(
     }
 }
 
-class StubRuntimeEngine(
-    private val policy: RuntimePolicy = RuntimePolicy(),
-) : RuntimeEngine {
-    private var currentMode: Mode = Mode.GENERAL
-    private var monitoring = false
-
-    override fun start(mode: Mode) {
-        currentMode = mode
-        monitoring = true
-    }
-
-    override fun stop() {
-        monitoring = false
-    }
-
-    override fun updateMode(mode: Mode) {
-        currentMode = mode
-    }
-
-    override fun pushAudioPcm(samplesPcmFloat32: FloatArray): List<InferenceResult> {
-        if (!monitoring) {
-            return emptyList()
-        }
-        return listOf(inferWindow(samplesPcmFloat32))
-    }
-
-    override fun inferWindow(windowPcmFloat32: FloatArray): InferenceResult {
-        val seedDistance =
-            when (currentMode) {
-                Mode.SLEEP -> 0.9f
-                Mode.FOCUS -> 0.82f
-                Mode.GENERAL -> 0.76f
-            }
-        val confidence = 1.0f - seedDistance
-        val tier = when {
-            confidence >= 0.8f -> "high"
-            confidence >= 0.6f -> "medium"
-            else -> "low"
-        }
-
-        val raw = InferenceResult(
-            label = "doorbell",
-            distance = seedDistance,
-            confidence = confidence,
-            confidenceTier = tier,
-            topCandidates = listOf(
-                Candidate("doorbell", seedDistance, confidence),
-                Candidate("speech", seedDistance + 0.05f, (confidence - 0.05f).coerceAtLeast(0.0f)),
-                Candidate("dog_barking", seedDistance + 0.08f, (confidence - 0.08f).coerceAtLeast(0.0f)),
-            ),
-            flags = InferenceFlags(
-                isUnknown = false,
-                isBackground = false,
-                speechPitchRequired = false,
-            ),
-            speechPitch = null,
-        )
-        return policy.applyInvariants(raw)
-    }
-}
 
 private val Mode.key: String
     get() =
