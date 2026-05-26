@@ -13,12 +13,20 @@ class MonitorRecordTab extends StatefulWidget {
   const MonitorRecordTab({
     super.key,
     required this.recordedSounds,
+    required this.vibrationEnabled,
+    required this.cameraFlashEnabled,
+    required this.onVibrationToggle,
+    required this.onCameraFlashToggle,
     required this.onSaveSound,
     required this.onRenameSound,
     required this.onDeleteSound,
   });
 
   final List<CustomSoundSample> recordedSounds;
+  final bool vibrationEnabled;
+  final bool cameraFlashEnabled;
+  final ValueChanged<bool> onVibrationToggle;
+  final ValueChanged<bool> onCameraFlashToggle;
   final Future<void> Function(
     String name,
     String filePath,
@@ -175,6 +183,65 @@ class _MonitorRecordTabState extends State<MonitorRecordTab> {
                     ],
                   ),
                 ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: monitorRaised(radius: 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                const Text(
+                  "Alert Preferences",
+                  style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: monitorOnSurface),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: <Widget>[
+                    const Expanded(
+                      child: Text(
+                        "Vibrate on detection",
+                        style: TextStyle(
+                            color: monitorOnSurface,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500),
+                      ),
+                    ),
+                    Switch.adaptive(
+                      value: widget.vibrationEnabled,
+                      activeThumbColor: monitorPrimary,
+                      activeTrackColor:
+                          monitorPrimarySoft.withValues(alpha: 0.35),
+                      onChanged: widget.onVibrationToggle,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: <Widget>[
+                    const Expanded(
+                      child: Text(
+                        "Flash camera on detection",
+                        style: TextStyle(
+                            color: monitorOnSurface,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500),
+                      ),
+                    ),
+                    Switch.adaptive(
+                      value: widget.cameraFlashEnabled,
+                      activeThumbColor: monitorPrimary,
+                      activeTrackColor:
+                          monitorPrimarySoft.withValues(alpha: 0.35),
+                      onChanged: widget.onCameraFlashToggle,
+                    ),
+                  ],
+                ),
               ],
             ),
           ),

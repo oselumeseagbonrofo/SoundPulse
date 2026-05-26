@@ -12,6 +12,8 @@ class LocalStorageService {
   static const String _contextAwareKey = "soundpulse.context_aware";
   static const String _backboneKey = "soundpulse.backbone";
   static const String _recordedSoundsKey = "soundpulse.recorded_sounds";
+  static const String _vibrationKey = "soundpulse.vibration_enabled";
+  static const String _cameraFlashKey = "soundpulse.camera_flash_enabled";
 
   Box<dynamic>? _settingsBox() {
     if (!Hive.isBoxOpen(_settingsBoxName)) {
@@ -74,5 +76,23 @@ class LocalStorageService {
         .toList(growable: false);
     return Future.sync(
         () => _recordingsBox()?.put(_recordedSoundsKey, payload));
+  }
+
+  Future<void> saveVibrationEnabled(bool enabled) {
+    return Future.sync(() => _settingsBox()?.put(_vibrationKey, enabled));
+  }
+
+  Future<bool> readVibrationEnabled() async {
+    final box = _settingsBox();
+    return box?.get(_vibrationKey, defaultValue: false) as bool? ?? false;
+  }
+
+  Future<void> saveCameraFlashEnabled(bool enabled) {
+    return Future.sync(() => _settingsBox()?.put(_cameraFlashKey, enabled));
+  }
+
+  Future<bool> readCameraFlashEnabled() async {
+    final box = _settingsBox();
+    return box?.get(_cameraFlashKey, defaultValue: false) as bool? ?? false;
   }
 }

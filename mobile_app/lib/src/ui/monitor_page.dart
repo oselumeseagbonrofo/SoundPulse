@@ -37,6 +37,8 @@ class _MonitorPageState extends State<MonitorPage> {
   String _mode = "general";
   String _backbone = "yamnet";
   int _tabIndex = 0;
+  bool _vibrationEnabled = false;
+  bool _cameraFlashEnabled = false;
 
   @override
   void initState() {
@@ -49,27 +51,38 @@ class _MonitorPageState extends State<MonitorPage> {
     String storedBackbone = "yamnet";
     bool storedContextAware = false;
     List<CustomSoundSample> storedSounds = const <CustomSoundSample>[];
+    bool storedVibration = false;
+    bool storedCameraFlash = false;
 
     try {
       storedMode = await _storageService.readMode();
       storedBackbone = await _storageService.readBackbone();
       storedContextAware = await _storageService.readContextAware();
       storedSounds = await _storageService.readRecordedSounds();
+      storedVibration = await _storageService.readVibrationEnabled();
+      storedCameraFlash = await _storageService.readCameraFlashEnabled();
     } catch (_) {
       storedMode = "general";
       storedBackbone = "yamnet";
       storedContextAware = false;
       storedSounds = const <CustomSoundSample>[];
+      storedVibration = false;
+      storedCameraFlash = false;
     }
 
     if (!mounted) {
       return;
     }
 
+    // Request notification permission on Android 13+ to ensure system alerts work
+    unawaited(_runtimeBridge.requestNotificationPermission());
+
     setState(() {
       _mode = storedMode;
       _backbone = storedBackbone;
       _contextAware = storedContextAware;
+      _vibrationEnabled = storedVibration;
+      _cameraFlashEnabled = storedCameraFlash;
       _recordedSounds
         ..clear()
         ..addAll(storedSounds);
@@ -135,6 +148,21 @@ class _MonitorPageState extends State<MonitorPage> {
 
     if (event.isBackground || event.isUnknown) {
       return;
+    }
+
+    // Trigger system notification
+    final String title = "Sound Detected!";
+    final String body = "${event.label} (${(event.confidence * 100).toStringAsFixed(0)}% confidence)";
+    unawaited(_runtimeBridge.showNotification(title: title, body: body));
+
+    // Trigger vibration if enabled
+    if (_vibrationEnabled) {
+      unawaited(_runtimeBridge.vibrate());
+    }
+
+    // Trigger camera flash if enabled
+    if (_cameraFlashEnabled) {
+      unawaited(_runtimeBridge.triggerCameraFlash());
     }
 
     final String detectionId = DateTime.now().microsecondsSinceEpoch.toString();
@@ -283,6 +311,26 @@ class _MonitorPageState extends State<MonitorPage> {
 
     setState(() {
       _contextAware = enabled;
+    });
+  }
+
+  Future<void> _setVibrationEnabled(bool enabled) async {
+    await _storageService.saveVibrationEnabled(enabled);
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _vibrationEnabled = enabled;
+    });
+  }
+
+  Future<void> _setCameraFlashEnabled(bool enabled) async {
+    await _storageService.saveCameraFlashEnabled(enabled);
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _cameraFlashEnabled = enabled;
     });
   }
 
@@ -473,6 +521,10 @@ class _MonitorPageState extends State<MonitorPage> {
                 MonitorHistoryTab(history: _history),
                 MonitorRecordTab(
                   recordedSounds: _recordedSounds,
+                  vibrationEnabled: _vibrationEnabled,
+                  cameraFlashEnabled: _cameraFlashEnabled,
+                  onVibrationToggle: _setVibrationEnabled,
+                  onCameraFlashToggle: _setCameraFlashEnabled,
                   onSaveSound: _saveRecordedSound,
                   onRenameSound: _renameRecordedSound,
                   onDeleteSound: _deleteRecordedSound,

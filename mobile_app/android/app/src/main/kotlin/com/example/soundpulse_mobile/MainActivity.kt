@@ -20,6 +20,16 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
+import android.content.Context
+import android.os.Vibrator
+import android.os.VibrationEffect
+import android.os.Build
+import android.hardware.camera2.CameraManager
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.content.Intent
+import androidx.core.app.NotificationCompat
 
 class MainActivity : FlutterActivity() {
     private val methodChannelName = "soundpulse.runtime/methods"
@@ -40,8 +50,14 @@ class MainActivity : FlutterActivity() {
     private var captureThread: Thread? = null
     @Volatile private var captureRunning: Boolean = false
 
+    private val channelId = "soundpulse_alerts"
+    private val channelName = "Sound Detection Alerts"
+    private val channelDescription = "Notifications for detected sounds"
+    private var notificationIdCounter = 0
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        createNotificationChannel()
 
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, methodChannelName)
             .setMethodCallHandler { call, result ->
@@ -129,6 +145,30 @@ class MainActivity : FlutterActivity() {
                         val results = runtimeEngine?.pushAudioPcm(samples).orEmpty()
                         dispatchResults(results, samples)
                         result.success(results.map { item -> toPayload(item, samples) })
+                    }
+
+                    "showNotification" -> {
+                        val title = call.argument<String>("title").orEmpty()
+                        val body = call.argument<String>("body").orEmpty()
+                        showNotification(title, body)
+                        result.success(null)
+                    }
+
+                    "vibrate" -> {
+                        vibrate()
+                        result.success(null)
+                    }
+
+                    "triggerCameraFlash" -> {
+                        triggerCameraFlash()
+                        result.success(null)
+                    }
+
+                    "requestNotificationPermission" -> {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                            requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 101)
+                        }
+                        result.success(true)
                     }
 
                     else -> result.notImplemented()
@@ -336,6 +376,90 @@ class MainActivity : FlutterActivity() {
                     )
                 },
         )
+    }
+
+    private fun createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val importance = NotificationManager.IMPORTANCE_HIGH
+            val channel = NotificationChannel(channelId, channelName, importance).apply {
+                description = channelDescription
+            }
+            val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            notificationManager.createNotificationChannel(channel)
+        }
+    }
+
+    private fun showNotification(title: String, body: String) {
+        try {
+            val intent = Intent(this, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            }
+            val pendingIntent = PendingIntent.getActivity(
+                this,
+                0,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+
+            val builder = NotificationCompat.Builder(this, channelId)
+                .setSmallIcon(R.mipmap.ic_launcher)
+                .setContentTitle(title)
+                .setContentText(body)
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setContentIntent(pendingIntent)
+                .setAutoCancel(true)
+
+            val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            notificationManager.notify(notificationIdCounter++, builder.build())
+        } catch (e: Exception) {
+            // Ignore notification errors
+        }
+    }
+
+    private fun vibrate() {
+        try {
+            val vibrator = getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
+            if (vibrator != null && vibrator.hasVibrator()) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    vibrator.vibrate(VibrationEffect.createOneShot(500, VibrationEffect.DEFAULT_AMPLITUDE))
+                } else {
+                    @Suppress("DEPRECATION")
+                    vibrator.vibrate(500)
+                }
+            }
+        } catch (e: Exception) {
+            // Ignore vibration errors
+        }
+    }
+
+    private fun triggerCameraFlash() {
+        try {
+            val cameraManager = getSystemService(Context.CAMERA_SERVICE) as? CameraManager
+            if (cameraManager != null) {
+                val cameraId = cameraManager.cameraIdList.firstOrNull { id ->
+                    val characteristics = cameraManager.getCameraCharacteristics(id)
+                    characteristics.get(android.hardware.camera2.CameraCharacteristics.FLASH_INFO_AVAILABLE) == true
+                }
+                if (cameraId != null) {
+                    Thread {
+                        try {
+                            for (i in 0 until 3) {
+                                cameraManager.setTorchMode(cameraId, true)
+                                Thread.sleep(100)
+                                cameraManager.setTorchMode(cameraId, false)
+                                Thread.sleep(100)
+                            }
+                        } catch (e: Exception) {
+                            try {
+                                cameraManager.setTorchMode(cameraId, false)
+                            } catch (_: Exception) {}
+                        }
+                    }.start()
+                }
+            }
+        } catch (e: Exception) {
+            // Ignore camera flash errors
+        }
     }
 
     private data class StartMonitoringError(

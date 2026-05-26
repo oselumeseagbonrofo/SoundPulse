@@ -99,4 +99,23 @@ class RuntimeBridge {
       return InferenceEvent.fromMap(map);
     }).toList(growable: false);
   }
+
+  Future<void> showNotification({required String title, required String body}) {
+    return _methods.invokeMethod<void>("showNotification", <String, dynamic>{
+      "title": title,
+      "body": body,
+    });
+  }
+
+  Future<void> vibrate() {
+    return _methods.invokeMethod<void>("vibrate");
+  }
+
+  Future<void> triggerCameraFlash() {
+    return _methods.invokeMethod<void>("triggerCameraFlash");
+  }
+
+  Future<void> requestNotificationPermission() {
+    return _methods.invokeMethod<void>("requestNotificationPermission");
+  }
 }
