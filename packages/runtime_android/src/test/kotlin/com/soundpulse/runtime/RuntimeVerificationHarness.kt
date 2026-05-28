@@ -29,10 +29,24 @@ private class FakeEmbeddingExtractor(
     }
 }
 
+private class FakeLiteRtInterpreter : LiteRtInterpreter {
+    var lastInput: Any? = null
+
+    override fun run(input: Any, output: Any) {
+        lastInput = input
+        val outputArray = output as FloatArray
+        for (index in outputArray.indices) {
+            outputArray[index] = index.toFloat()
+        }
+    }
+}
+
 fun main() {
     testAudioWindowSegmenter()
     testPrototypeScorer()
     testRuntimePreprocessor()
+    testTinyCnnFeatureBuilder()
+    testTinyCnnEmbeddingExtractor()
     testSpeechPitchEstimator()
     testRuntimePolicyInvariants()
     testLiteRtRuntimeEngineIntegration()
@@ -67,16 +81,94 @@ private fun testRuntimePreprocessor() {
     val preprocessor = RuntimePreprocessor(config)
 
     val prepared = preprocessor.prepareWindow(floatArrayOf(1f, 2f, 3f, 4f))
-    Assert.near(prepared[0], -1f, 1e-4f, "preprocessor first sample")
-    Assert.near(prepared[1], -0.33333334f, 1e-4f, "preprocessor second sample")
-    Assert.near(prepared[2], 0.33333334f, 1e-4f, "preprocessor third sample")
-    Assert.near(prepared[3], 1f, 1e-4f, "preprocessor fourth sample")
+    Assert.near(prepared[0], 1f, 1e-4f, "preprocessor first sample")
+    Assert.near(prepared[1], 2f, 1e-4f, "preprocessor second sample")
+    Assert.near(prepared[2], 3f, 1e-4f, "preprocessor third sample")
+    Assert.near(prepared[3], 4f, 1e-4f, "preprocessor fourth sample")
 
     val loudWindow = preprocessor.loudnessDbfs(floatArrayOf(1f, -1f, 1f, -1f))
     Assert.near(loudWindow, 0f, 1e-4f, "loudness for full-scale waveform")
 
     val silentWindow = preprocessor.loudnessDbfs(floatArrayOf(0f, 0f, 0f, 0f))
     Assert.that(silentWindow < -100f, "silence loudness should be very low")
+}
+
+private fun testTinyCnnFeatureBuilder() {
+    val config = tinyCnnTestConfig()
+    val builder = TinyCnnFeatureBuilder(config)
+    val samples = FloatArray(config.windowSamples)
+    for (index in samples.indices) {
+        val phase = 2.0 * PI * 440.0 * index.toDouble() / config.sampleRateHz.toDouble()
+        samples[index] = sin(phase).toFloat()
+    }
+
+    val tensor = builder.buildImageTensor(samples)
+    Assert.that(tensor.size == 1, "TinyCNN tensor batch dimension mismatch")
+    Assert.that(tensor[0].size == 128, "TinyCNN tensor height mismatch")
+    Assert.that(tensor[0][0].size == 128, "TinyCNN tensor width mismatch")
+    Assert.that(tensor[0][0][0].size == 3, "TinyCNN tensor channel mismatch")
+    Assert.near(tensor[0][7][9][0], tensor[0][7][9][1], 0f, "TinyCNN RGB channel 0/1 mismatch")
+    Assert.near(tensor[0][7][9][1], tensor[0][7][9][2], 0f, "TinyCNN RGB channel 1/2 mismatch")
+
+    val flat = builder.buildFlatImage(samples)
+    var sum = 0.0
+    var sumSquares = 0.0
+    for (value in flat) {
+        Assert.that(!value.isNaN() && !value.isInfinite(), "TinyCNN feature contains non-finite value")
+        sum += value
+        sumSquares += value * value
+    }
+    val mean = sum / flat.size
+    val variance = (sumSquares / flat.size) - (mean * mean)
+    Assert.that(variance > 0.01, "TinyCNN feature should retain variance for a sine wave")
+    Assert.near(mean.toFloat(), 0f, 0.05f, "TinyCNN standardized sine mean")
+    Assert.near(kotlin.math.sqrt(variance).toFloat(), 1f, 0.05f, "TinyCNN standardized sine stddev")
+
+    val anchorIndices = intArrayOf(0, 819, 1638, 2457, 3276, 4095, 4914, 5733)
+    val referenceAnchors =
+        floatArrayOf(
+            0.15895866f,
+            0.47769502f,
+            0.63189465f,
+            0.85572034f,
+            1.995531f,
+            3.215053f,
+            3.5251842f,
+            3.5320544f,
+        )
+    for (index in anchorIndices.indices) {
+        Assert.near(
+            flat[anchorIndices[index]],
+            referenceAnchors[index],
+            0.35f,
+            "TinyCNN sine anchor ${anchorIndices[index]}",
+        )
+    }
+
+    val silent = builder.buildFlatImage(FloatArray(config.windowSamples))
+    for (value in silent) {
+        Assert.that(!value.isNaN() && !value.isInfinite(), "Silent TinyCNN feature contains non-finite value")
+    }
+
+    val shortFeature = builder.buildFlatImage(floatArrayOf(0.25f, -0.25f))
+    Assert.that(shortFeature.size == 128 * 128 * 3, "Short TinyCNN feature should be padded to fixed image size")
+}
+
+private fun testTinyCnnEmbeddingExtractor() {
+    val interpreter = FakeLiteRtInterpreter()
+    val extractor =
+        TinyCnnEmbeddingExtractor(
+            interpreter = interpreter,
+            preprocessing = tinyCnnTestConfig(),
+            embeddingDim = 4,
+        )
+    val embedding = extractor.extractEmbedding(FloatArray(tinyCnnTestConfig().windowSamples) { 0.1f })
+    Assert.that(embedding.contentEquals(floatArrayOf(0f, 1f, 2f, 3f)), "TinyCNN embedding output mismatch")
+
+    val input = interpreter.lastInput
+    Assert.that(input is Array<*>, "TinyCNN interpreter should receive a 4D tensor")
+    val batch = input as Array<*>
+    Assert.that(batch.size == 1, "TinyCNN interpreter batch size mismatch")
 }
 
 private fun testSpeechPitchEstimator() {
@@ -183,3 +275,16 @@ private fun testLiteRtRuntimeEngineIntegration() {
     val stopped = engine.pushAudioPcm(floatArrayOf(1f, -1f, 1f, -1f))
     Assert.that(stopped.isEmpty(), "engine should stop emitting after stop()")
 }
+
+private fun tinyCnnTestConfig(): PreprocessingConfig =
+    PreprocessingConfig(
+        sampleRateHz = 16000,
+        channels = 1,
+        windowDurationMs = 982,
+        hopDurationMs = 480,
+        tinyCnnEmbeddingDim = 1024,
+        yamnetEmbeddingDim = 1024,
+        stft = StftConfig(nFft = 512, hopLength = 160, winLength = 400, window = "hann", center = false),
+        mel = MelConfig(nMels = 64, fMinHz = 125f, fMaxHz = 7500f, power = 1f, logOffset = 0.001f),
+        normalization = NormalizationConfig(type = "log_mel", clipMinDb = -80f, clipMaxDb = 0f),
+    )

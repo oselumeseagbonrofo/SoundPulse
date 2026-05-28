@@ -13,6 +13,7 @@ import com.soundpulse.runtime.RuntimeArtifactLoader
 import com.soundpulse.runtime.LiteRtModelLoader
 import com.soundpulse.runtime.RuntimeBackbone
 import com.soundpulse.runtime.LiteRtEmbeddingExtractor
+import com.soundpulse.runtime.TinyCnnEmbeddingExtractor
 import android.os.Handler
 import android.os.Looper
 import androidx.core.content.ContextCompat
@@ -99,12 +100,15 @@ class MainActivity : FlutterActivity() {
                                         } else {
                                             RuntimeBackbone.TINY_CNN
                                         }
-                                        val embeddingDim = if (activeBackbone == RuntimeBackbone.YAMNET) {
-                                            artifacts.preprocessing.yamnetEmbeddingDim
+                                        val extractor = if (activeBackbone == RuntimeBackbone.YAMNET) {
+                                            LiteRtEmbeddingExtractor(interpreter, artifacts.preprocessing.yamnetEmbeddingDim)
                                         } else {
-                                            artifacts.preprocessing.tinyCnnEmbeddingDim
+                                            TinyCnnEmbeddingExtractor(
+                                                interpreter,
+                                                artifacts.preprocessing,
+                                                artifacts.preprocessing.tinyCnnEmbeddingDim
+                                            )
                                         }
-                                        val extractor = LiteRtEmbeddingExtractor(interpreter, embeddingDim)
                                         runtimeEngine = LiteRtRuntimeFactory.createFromArtifacts(artifacts, extractor)
                                         startMonitoring()
                                     }

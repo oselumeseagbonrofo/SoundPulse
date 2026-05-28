@@ -31,7 +31,7 @@ class MultiBackboneEmbeddingExtractor(
 }
 
 interface LiteRtInterpreter {
-    fun run(input: FloatArray, output: FloatArray)
+    fun run(input: Any, output: Any)
 }
 
 object LiteRtModelLoader {
@@ -49,6 +49,20 @@ class LiteRtEmbeddingExtractor(
     override fun extractEmbedding(preprocessedWindow: FloatArray): FloatArray {
         val output = FloatArray(embeddingDim)
         interpreter.run(preprocessedWindow, output)
+        return output
+    }
+}
+
+class TinyCnnEmbeddingExtractor(
+    private val interpreter: LiteRtInterpreter,
+    preprocessing: PreprocessingConfig,
+    private val embeddingDim: Int,
+) : EmbeddingExtractor {
+    private val featureBuilder = TinyCnnFeatureBuilder(preprocessing)
+
+    override fun extractEmbedding(preprocessedWindow: FloatArray): FloatArray {
+        val output = FloatArray(embeddingDim)
+        interpreter.run(featureBuilder.buildImageTensor(preprocessedWindow), output)
         return output
     }
 }
@@ -89,20 +103,11 @@ private class ReflectionLiteRtInterpreter(
         shapeMethod = tensorClass.getMethod("shape")
     }
 
-    override fun run(input: FloatArray, output: FloatArray) {
+    override fun run(input: Any, output: Any) {
         val inputTensor = getInputTensorMethod.invoke(interpreterInstance, 0)
         val inputShape = shapeMethod.invoke(inputTensor) as IntArray
 
-        if (inputShape.size == 4) {
-            // TinyCNN expects 4D input [1, 128, 128, 3] representing log-mel RGB spectrogram
-            throw IllegalArgumentException(
-                "TinyCNN expects a 4D log-mel spectrogram input of shape [1, 128, 128, 3], but a 1D raw waveform was provided. " +
-                "The on-device DSP pipeline (STFT + log-mel spectrogram feature extraction) is not yet implemented in this package. " +
-                "Please select YAMNet as the active backbone model in the Live Feed tab settings."
-            )
-        }
-
-        if (inputShape.size == 1) {
+        if (input is FloatArray && inputShape.size == 1) {
             val currentShapeVal = inputShape[0]
             if (input.size != currentShapeVal || input.size != lastInputSize) {
                 resizeInputMethod.invoke(interpreterInstance, 0, intArrayOf(input.size))
@@ -121,13 +126,13 @@ private class ReflectionLiteRtInterpreter(
 
             runMethod.invoke(interpreterInstance, input, tempOutput)
 
-            // Average along the first dimension (frames) and copy to output
-            for (j in 0 until minOf(embeddingDim, output.size)) {
+            val outputArray = output as FloatArray
+            for (j in 0 until minOf(embeddingDim, outputArray.size)) {
                 var sum = 0f
                 for (i in 0 until numFrames) {
                     sum += tempOutput[i][j]
                 }
-                output[j] = sum / numFrames
+                outputArray[j] = sum / numFrames
             }
         } else {
             runMethod.invoke(interpreterInstance, input, output)

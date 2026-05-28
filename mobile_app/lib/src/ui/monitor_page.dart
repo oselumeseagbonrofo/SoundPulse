@@ -40,6 +40,13 @@ class _MonitorPageState extends State<MonitorPage> {
   bool _vibrationEnabled = false;
   bool _cameraFlashEnabled = false;
 
+  final List<String> _predictionWindow = <String>[];
+  String? _activeNotifiedSound;
+
+  static const int _windowSize = 15;
+  static const double _onsetThreshold = 0.0;
+  static const double _offsetThreshold = 0.0;
+
   @override
   void initState() {
     super.initState();
@@ -145,59 +152,99 @@ class _MonitorPageState extends State<MonitorPage> {
     if (!mounted) {
       return;
     }
+    // Print Label & confidence for debugging. To be removed in final version.
+    // debugPrint("Received event: label=${event.label}, confidence=${event.confidence}");
 
-    if (event.isBackground || event.isUnknown) {
-      return;
+    // 1. Standardize label (background/unknown mapped to "background")
+    final String label = (event.isBackground || event.isUnknown) ? "background" : event.label;
+    // 2. Add to prediction window
+    _predictionWindow.add(label);
+    if (_predictionWindow.length > _windowSize) {
+      _predictionWindow.removeAt(0);
     }
 
-    // Trigger system notification
-    final String title = "Sound Detected!";
-    final String body = "${event.label} (${(event.confidence * 100).toStringAsFixed(0)}% confidence)";
-    unawaited(_runtimeBridge.showNotification(title: title, body: body));
-
-    // Trigger vibration if enabled
-    if (_vibrationEnabled) {
-      unawaited(_runtimeBridge.vibrate());
+    // 3. Count frequencies in the sliding window
+    final Map<String, int> frequencies = <String, int>{};
+    for (final String l in _predictionWindow) {
+      frequencies[l] = (frequencies[l] ?? 0) + 1;
     }
 
-    // Trigger camera flash if enabled
-    if (_cameraFlashEnabled) {
-      unawaited(_runtimeBridge.triggerCameraFlash());
-    }
+    final String? active = _activeNotifiedSound;
 
-    final String detectionId = DateTime.now().microsecondsSinceEpoch.toString();
-    final DateTime capturedAt = DateTime.now();
-    final List<double> waveformSamples =
-        List<double>.from(event.waveformSamples, growable: false);
-    final String audioFilePath = waveformSamples.isEmpty
-        ? ""
-        : await _persistDetectionAudioClip(detectionId, waveformSamples);
+    if (active == null) {
+      // 4. Onset check: Look for a non-background label that meets the onset threshold
+      String? candidateLabel;
+      int maxCount = 0;
+      frequencies.forEach((String key, int count) {
+        if (key != "background" && count > maxCount) {
+          maxCount = count;
+          candidateLabel = key;
+        }
+      });
 
-    if (!mounted) {
-      await _deleteDetectionFile(audioFilePath);
-      return;
-    }
+      if (candidateLabel != null) {
+        final double ratio = maxCount / _predictionWindow.length;
+        if (ratio >= _onsetThreshold) {
+          // Onset triggered!
+          _activeNotifiedSound = candidateLabel;
 
-    MonitorHistoryEntry? removedEntry;
-    setState(() {
-      _history.insert(
-        0,
-        MonitorHistoryEntry(
-          id: detectionId,
-          event: event,
-          capturedAt: capturedAt,
-          waveformSamples: waveformSamples,
-          audioFilePath: audioFilePath,
-        ),
-      );
-      if (_history.length > 20) {
-        removedEntry = _history.removeLast();
+          // Trigger alerts & persist to logs
+          final String title = "Sound Detected!";
+          final String body = "$candidateLabel (${(event.confidence * 100).toStringAsFixed(0)}% confidence)";
+          unawaited(_runtimeBridge.showNotification(title: title, body: body));
+
+          if (_vibrationEnabled) {
+            unawaited(_runtimeBridge.vibrate());
+          }
+
+          if (_cameraFlashEnabled) {
+            unawaited(_runtimeBridge.triggerCameraFlash());
+          }
+
+          final String detectionId = DateTime.now().microsecondsSinceEpoch.toString();
+          final DateTime capturedAt = DateTime.now();
+          final List<double> waveformSamples =
+              List<double>.from(event.waveformSamples, growable: false);
+          final String audioFilePath = waveformSamples.isEmpty
+              ? ""
+              : await _persistDetectionAudioClip(detectionId, waveformSamples);
+
+          if (!mounted) {
+            await _deleteDetectionFile(audioFilePath);
+            return;
+          }
+
+          MonitorHistoryEntry? removedEntry;
+          setState(() {
+            _history.insert(
+              0,
+              MonitorHistoryEntry(
+                id: detectionId,
+                event: event,
+                capturedAt: capturedAt,
+                waveformSamples: waveformSamples,
+                audioFilePath: audioFilePath,
+              ),
+            );
+            if (_history.length > 20) {
+              removedEntry = _history.removeLast();
+            }
+          });
+
+          final String pathToDelete = removedEntry?.audioFilePath ?? "";
+          if (pathToDelete.isNotEmpty) {
+            unawaited(_deleteDetectionFile(pathToDelete));
+          }
+        }
       }
-    });
-
-    final String pathToDelete = removedEntry?.audioFilePath ?? "";
-    if (pathToDelete.isNotEmpty) {
-      unawaited(_deleteDetectionFile(pathToDelete));
+    } else {
+      // 5. Offset check: Check if the currently active sound falls below offset threshold
+      final int count = frequencies[active] ?? 0;
+      final double ratio = count / _predictionWindow.length;
+      if (ratio < _offsetThreshold) {
+        // Offset triggered! Clear the active state
+        _activeNotifiedSound = null;
+      }
     }
   }
 

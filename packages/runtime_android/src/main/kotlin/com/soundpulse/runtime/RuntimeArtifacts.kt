@@ -19,6 +19,9 @@ data class PreprocessingConfig(
     val hopDurationMs: Int,
     val tinyCnnEmbeddingDim: Int,
     val yamnetEmbeddingDim: Int,
+    val stft: StftConfig = StftConfig(),
+    val mel: MelConfig = MelConfig(),
+    val normalization: NormalizationConfig = NormalizationConfig(),
 ) {
     val windowSamples: Int
         get() = (sampleRateHz * (windowDurationMs / 1000f)).roundToInt()
@@ -26,6 +29,28 @@ data class PreprocessingConfig(
     val hopSamples: Int
         get() = (sampleRateHz * (hopDurationMs / 1000f)).roundToInt()
 }
+
+data class StftConfig(
+    val nFft: Int = 512,
+    val hopLength: Int = 160,
+    val winLength: Int = 400,
+    val window: String = "hann",
+    val center: Boolean = false,
+)
+
+data class MelConfig(
+    val nMels: Int = 64,
+    val fMinHz: Float = 125f,
+    val fMaxHz: Float = 7500f,
+    val power: Float = 1f,
+    val logOffset: Float = 0.001f,
+)
+
+data class NormalizationConfig(
+    val type: String = "log_mel",
+    val clipMinDb: Float = -80f,
+    val clipMaxDb: Float = 0f,
+)
 
 data class ConfidenceTiers(
     val high: Float,
@@ -107,6 +132,9 @@ object RuntimeArtifactLoader {
 
     private fun parsePreprocessing(root: JSONObject): PreprocessingConfig {
         val audio = root.getJSONObject("audio")
+        val stft = root.getJSONObject("stft")
+        val mel = root.getJSONObject("mel")
+        val normalization = root.getJSONObject("normalization")
         val embedding = root.getJSONObject("embedding_contract")
         return PreprocessingConfig(
             sampleRateHz = audio.getInt("sample_rate_hz"),
@@ -115,6 +143,28 @@ object RuntimeArtifactLoader {
             hopDurationMs = audio.getInt("hop_duration_ms"),
             tinyCnnEmbeddingDim = embedding.getInt("tiny_cnn_dim"),
             yamnetEmbeddingDim = embedding.getInt("yamnet_dim"),
+            stft =
+                StftConfig(
+                    nFft = stft.getInt("n_fft"),
+                    hopLength = stft.getInt("hop_length"),
+                    winLength = stft.getInt("win_length"),
+                    window = stft.getString("window"),
+                    center = stft.getBoolean("center"),
+                ),
+            mel =
+                MelConfig(
+                    nMels = mel.getInt("n_mels"),
+                    fMinHz = mel.getDouble("f_min_hz").toFloat(),
+                    fMaxHz = mel.getDouble("f_max_hz").toFloat(),
+                    power = mel.getDouble("power").toFloat(),
+                    logOffset = mel.getDouble("log_offset").toFloat(),
+                ),
+            normalization =
+                NormalizationConfig(
+                    type = normalization.getString("type"),
+                    clipMinDb = normalization.getDouble("clip_min_db").toFloat(),
+                    clipMaxDb = normalization.getDouble("clip_max_db").toFloat(),
+                ),
         )
     }
 

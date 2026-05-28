@@ -29,8 +29,9 @@ object LiteRtRuntimeFactory {
         val extractor =
             MultiBackboneEmbeddingExtractor(
                 tinyCnnExtractor =
-                    LiteRtEmbeddingExtractor(
+                    TinyCnnEmbeddingExtractor(
                         interpreter = tinyInterpreter,
+                        preprocessing = artifacts.preprocessing,
                         embeddingDim = artifacts.preprocessing.tinyCnnEmbeddingDim,
                     ),
                 yamnetExtractor =

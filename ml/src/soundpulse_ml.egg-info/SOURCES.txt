@@ -3,6 +3,7 @@ pyproject.toml
 src/soundpulse_ml/__init__.py
 src/soundpulse_ml/contracts.py
 src/soundpulse_ml/datasets.py
+src/soundpulse_ml/preprocessing.py
 src/soundpulse_ml.egg-info/PKG-INFO
 src/soundpulse_ml.egg-info/SOURCES.txt
 src/soundpulse_ml.egg-info/dependency_links.txt
