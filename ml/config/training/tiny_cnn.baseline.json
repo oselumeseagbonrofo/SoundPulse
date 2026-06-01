@@ -2,7 +2,7 @@
   "version": "1.0.0",
   "model": {
     "name": "tiny_cnn",
-    "embedding_dim": 128,
+    "embedding_dim": 1024,
     "num_classes": 10,
     "dropout": 0.2
   },

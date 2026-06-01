@@ -9,6 +9,9 @@ interface RuntimeEngine {
     fun updateMode(mode: Mode)
     fun pushAudioPcm(samplesPcmFloat32: FloatArray): List<InferenceResult>
     fun inferWindow(windowPcmFloat32: FloatArray): InferenceResult
+    fun extractEmbedding(windowPcmFloat32: FloatArray): FloatArray
+    fun updatePrototype(label: String, embedding: FloatArray)
+    fun resetPrototype(label: String)
 }
 
 class LiteRtRuntimeEngine(
@@ -108,6 +111,18 @@ class LiteRtRuntimeEngine(
             )
 
         return policy.applyInvariants(raw)
+    }
+
+    override fun extractEmbedding(windowPcmFloat32: FloatArray): FloatArray {
+        return embeddingExtractor.extractEmbedding(preprocessor.prepareWindow(windowPcmFloat32))
+    }
+
+    override fun updatePrototype(label: String, embedding: FloatArray) {
+        prototypeScorer.updatePrototype(label, embedding)
+    }
+
+    override fun resetPrototype(label: String) {
+        prototypeScorer.resetPrototype(label)
     }
 
     private fun computeConfidence(distance: Float, threshold: Float): Float {

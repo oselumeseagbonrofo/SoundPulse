@@ -21,6 +21,8 @@ class MonitorLiveFeedTab extends StatefulWidget {
     required this.onBackboneChanged,
     required this.onContextAwareChanged,
     required this.onViewAll,
+    required this.submittedFeedback,
+    required this.onSubmitFeedback,
   });
 
   final String mode;
@@ -32,6 +34,8 @@ class MonitorLiveFeedTab extends StatefulWidget {
   final Future<void> Function(String backbone) onBackboneChanged;
   final Future<void> Function(bool enabled) onContextAwareChanged;
   final VoidCallback onViewAll;
+  final Map<String, String> submittedFeedback;
+  final void Function(String eventId, String label, String feedbackValue) onSubmitFeedback;
 
   @override
   State<MonitorLiveFeedTab> createState() => _MonitorLiveFeedTabState();
@@ -108,6 +112,8 @@ class _MonitorLiveFeedTabState extends State<MonitorLiveFeedTab> {
                     _modeChip("focus"),
                     const SizedBox(width: 8),
                     _modeChip("sleep"),
+                    const SizedBox(width: 8),
+                    _modeChip("cooking"),
                   ],
                 ),
                 const SizedBox(height: 14),
@@ -256,6 +262,9 @@ class _MonitorLiveFeedTabState extends State<MonitorLiveFeedTab> {
   Widget _buildHistoryCard(MonitorHistoryEntry entry) {
     final String confidence = "${(entry.event.confidence * 100).round()}%";
     final bool playing = _playingEntryId == entry.id;
+    final String label = entry.event.label;
+    final String? currentFeedback = widget.submittedFeedback[entry.id];
+
     return Container(
       margin: const EdgeInsets.only(top: 12),
       padding: const EdgeInsets.all(16),
@@ -267,7 +276,7 @@ class _MonitorLiveFeedTabState extends State<MonitorLiveFeedTab> {
             children: <Widget>[
               Expanded(
                 child: Text(
-                  entry.event.label,
+                  formatSoundLabel(entry.event.label),
                   style: const TextStyle(
                       color: monitorPrimary,
                       fontSize: 17,
@@ -316,23 +325,68 @@ class _MonitorLiveFeedTabState extends State<MonitorLiveFeedTab> {
                     ),
             ),
           ),
-          const SizedBox(height: 6),
-          Align(
-            alignment: Alignment.centerRight,
-            child: IconButton(
-              tooltip: playing ? "Stop playback" : "Play detection",
-              onPressed: () async {
-                await _togglePlayback(entry);
-              },
-              icon: Icon(
-                playing
-                    ? Icons.stop_circle_outlined
-                    : Icons.play_circle_outline,
-                color: monitorPrimary,
+          const SizedBox(height: 10),
+          Row(
+            children: <Widget>[
+              IconButton(
+                tooltip: playing ? "Stop playback" : "Play detection",
+                onPressed: () async {
+                  await _togglePlayback(entry);
+                },
+                icon: Icon(
+                  playing
+                      ? Icons.stop_circle_outlined
+                      : Icons.play_circle_outline,
+                  color: monitorPrimary,
+                ),
               ),
-            ),
+              const Spacer(),
+              _feedbackButton(entry.id, label, "correct", Icons.check_circle_outline, Colors.green, currentFeedback == "correct"),
+              const SizedBox(width: 6),
+              _feedbackButton(entry.id, label, "wrong", Icons.cancel_outlined, Colors.red, currentFeedback == "wrong"),
+              const SizedBox(width: 6),
+              _feedbackButton(entry.id, label, "not_sure", Icons.help_outline, Colors.orange, currentFeedback == "not_sure"),
+            ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _feedbackButton(
+    String eventId,
+    String label,
+    String val,
+    IconData icon,
+    Color activeColor,
+    bool isSelected,
+  ) {
+    return InkWell(
+      onTap: () => widget.onSubmitFeedback(eventId, label, val),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: isSelected
+            ? monitorPressed(radius: 8).copyWith(color: activeColor.withValues(alpha: 0.15))
+            : monitorRaised(radius: 8),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Icon(
+              icon,
+              size: 12,
+              color: isSelected ? activeColor : monitorOnSurfaceVariant,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              val == "not_sure" ? "Not Sure" : val[0].toUpperCase() + val.substring(1),
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                color: isSelected ? activeColor : monitorOnSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

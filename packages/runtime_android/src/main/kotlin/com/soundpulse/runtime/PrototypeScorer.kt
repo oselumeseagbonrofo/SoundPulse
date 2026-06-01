@@ -3,10 +3,28 @@ package com.soundpulse.runtime
 import kotlin.math.max
 
 class PrototypeScorer(
-    private val prototypes: Map<String, FloatArray>,
+    prototypes: Map<String, FloatArray>,
 ) {
+    private val originalPrototypes: Map<String, FloatArray> = prototypes.mapValues { it.value.copyOf() }
+    private val prototypes: MutableMap<String, FloatArray> = prototypes.mapValues { it.value.copyOf() }.toMutableMap()
+
     init {
         require(prototypes.isNotEmpty()) { "prototypes cannot be empty" }
+    }
+
+    fun updatePrototype(label: String, embedding: FloatArray) {
+        require(label.isNotBlank()) { "label cannot be blank" }
+        require(embedding.isNotEmpty()) { "prototype embedding cannot be empty" }
+        prototypes[label] = embedding.copyOf()
+    }
+
+    fun resetPrototype(label: String) {
+        val original = originalPrototypes[label]
+        if (original != null) {
+            prototypes[label] = original.copyOf()
+        } else {
+            prototypes.remove(label)
+        }
     }
 
     fun score(embedding: FloatArray, topN: Int): List<Candidate> {

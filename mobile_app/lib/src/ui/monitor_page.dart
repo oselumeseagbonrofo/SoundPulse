@@ -1,5 +1,6 @@
 import "dart:async";
 import "dart:io";
+import "dart:math" as math;
 import "dart:typed_data";
 
 import "package:flutter/material.dart";
@@ -14,7 +15,9 @@ import "../storage/local_storage_service.dart";
 import "monitor_history_tab.dart";
 import "monitor_live_feed_tab.dart";
 import "monitor_record_tab.dart";
+import "monitor_settings_tab.dart";
 import "monitor_style.dart";
+import "../services/context_manager.dart";
 
 class MonitorPage extends StatefulWidget {
   const MonitorPage({super.key});
@@ -26,24 +29,42 @@ class MonitorPage extends StatefulWidget {
 class _MonitorPageState extends State<MonitorPage> {
   final RuntimeBridge _runtimeBridge = RuntimeBridge();
   final LocalStorageService _storageService = LocalStorageService();
+  final ContextManager _contextManager = ContextManager();
   final List<MonitorHistoryEntry> _history = <MonitorHistoryEntry>[];
   final List<CustomSoundSample> _recordedSounds = <CustomSoundSample>[];
+  final Map<String, String> _submittedFeedback = <String, String>{};
   final AudioRecorder _audioRecorder = AudioRecorder();
 
   StreamSubscription<InferenceEvent>? _eventsSub;
+  int _detectionCounter = 0;
 
   bool _monitoring = false;
   bool _contextAware = false;
   String _mode = "general";
   String _backbone = "yamnet";
+  String _personalisationLevel = "default";
   int _tabIndex = 0;
+  int _previousTabIndex = 0;
   bool _vibrationEnabled = false;
   bool _cameraFlashEnabled = false;
+  String? _runtimeReadyBackbone;
+
+  static const List<PersonalizableSoundOption> _builtInOptions = [
+    PersonalizableSoundOption("crying_baby", "Crying baby"),
+    PersonalizableSoundOption("water_running", "Water running"),
+    PersonalizableSoundOption("dog_barking", "Dog barking"),
+    PersonalizableSoundOption("door_wood_creaking", "Door creaking"),
+    PersonalizableSoundOption("background", "Ambient background"),
+  ];
+
+  final List<PersonalizableSoundOption> _soundOptions = <PersonalizableSoundOption>[
+    ..._builtInOptions
+  ];
 
   final List<String> _predictionWindow = <String>[];
   String? _activeNotifiedSound;
 
-  static const int _windowSize = 15;
+  static const int _windowSize = 1;
   static const double _onsetThreshold = 0.0;
   static const double _offsetThreshold = 0.0;
 
@@ -56,25 +77,37 @@ class _MonitorPageState extends State<MonitorPage> {
   Future<void> _loadPreferences() async {
     String storedMode = "general";
     String storedBackbone = "yamnet";
+    String storedPersonalisationLevel = "default";
     bool storedContextAware = false;
     List<CustomSoundSample> storedSounds = const <CustomSoundSample>[];
     bool storedVibration = false;
     bool storedCameraFlash = false;
+    List<Map<String, dynamic>> storedHistory = const <Map<String, dynamic>>[];
+    Map<String, Map<String, dynamic>> storedFeedback = const <String, Map<String, dynamic>>{};
+    List<Map<String, dynamic>> storedCustomClasses = const <Map<String, dynamic>>[];
 
     try {
       storedMode = await _storageService.readMode();
       storedBackbone = await _storageService.readBackbone();
+      storedPersonalisationLevel = await _storageService.readPersonalisationLevel();
       storedContextAware = await _storageService.readContextAware();
       storedSounds = await _storageService.readRecordedSounds();
       storedVibration = await _storageService.readVibrationEnabled();
       storedCameraFlash = await _storageService.readCameraFlashEnabled();
+      storedHistory = await _storageService.readEventHistory();
+      storedFeedback = await _storageService.readAllFeedback();
+      storedCustomClasses = await _storageService.readAllClassConfigs();
     } catch (_) {
       storedMode = "general";
       storedBackbone = "yamnet";
+      storedPersonalisationLevel = "default";
       storedContextAware = false;
       storedSounds = const <CustomSoundSample>[];
       storedVibration = false;
       storedCameraFlash = false;
+      storedHistory = const <Map<String, dynamic>>[];
+      storedFeedback = const <String, Map<String, dynamic>>{};
+      storedCustomClasses = const <Map<String, dynamic>>[];
     }
 
     if (!mounted) {
@@ -87,12 +120,82 @@ class _MonitorPageState extends State<MonitorPage> {
     setState(() {
       _mode = storedMode;
       _backbone = storedBackbone;
+      _personalisationLevel = storedPersonalisationLevel;
       _contextAware = storedContextAware;
       _vibrationEnabled = storedVibration;
       _cameraFlashEnabled = storedCameraFlash;
       _recordedSounds
         ..clear()
         ..addAll(storedSounds);
+
+      _soundOptions
+        ..clear()
+        ..addAll(_builtInOptions);
+      for (final map in storedCustomClasses) {
+        final String? slug = map["slug"] as String?;
+        final String? label = map["label"] as String?;
+        if (slug != null && label != null) {
+          _soundOptions.add(PersonalizableSoundOption(slug, label));
+        }
+      }
+
+      _submittedFeedback
+        ..clear()
+        ..addAll(storedFeedback.map((key, val) => MapEntry(key, val["user_feedback"] as String? ?? "correct")));
+
+      int legacyCounter = 0;
+      bool hasNullEventId = false;
+      final List<MonitorHistoryEntry> loadedHistory = [];
+
+      for (final map in storedHistory) {
+        if (map["event_id"] == null) {
+          hasNullEventId = true;
+        }
+        final eventMap = map["event"] as Map<dynamic, dynamic>? ?? {};
+        final event = InferenceEvent(
+          label: (map["predicted_label"] as String?) ?? (eventMap["label"] as String?) ?? "unknown",
+          confidenceTier: (map["confidence_tier"] as String?) ?? (eventMap["confidence_tier"] as String?) ?? "low",
+          confidence: ((map["confidence"] as num?) ?? (eventMap["confidence"] as num?) ?? 0.0).toDouble(),
+          isUnknown: (map["is_unknown"] as bool?) ?? (eventMap["flags"]?["is_unknown"] as bool?) ?? false,
+          isBackground: (map["is_background"] as bool?) ?? (eventMap["flags"]?["is_background"] as bool?) ?? false,
+          waveformSamples: (map["waveform_samples"] as List<dynamic>? ?? eventMap["waveform_samples"] as List<dynamic>? ?? const <dynamic>[])
+              .map((e) => (e as num).toDouble())
+              .toList(growable: false),
+        );
+        final String fallbackId = "${DateTime.now().microsecondsSinceEpoch}_${legacyCounter++}";
+        loadedHistory.add(MonitorHistoryEntry(
+          id: (map["event_id"] as String?) ?? fallbackId,
+          event: event,
+          capturedAt: DateTime.tryParse(map["timestamp"] as String? ?? "") ?? DateTime.now(),
+          waveformSamples: event.waveformSamples,
+          audioFilePath: (map["audio_file_path"] as String?) ?? "",
+        ));
+      }
+
+      _history
+        ..clear()
+        ..addAll(loadedHistory);
+
+      if (hasNullEventId) {
+        final List<Map<String, dynamic>> historyPayload = _history.map((entry) {
+          return <String, dynamic>{
+            "event_id": entry.id,
+            "timestamp": entry.capturedAt.toIso8601String(),
+            "predicted_label": entry.event.label,
+            "confidence_tier": entry.event.confidenceTier,
+            "confidence": entry.event.confidence,
+            "is_unknown": entry.event.isUnknown,
+            "is_background": entry.event.isBackground,
+            "active_mode": _mode,
+            "was_user_alerted": true,
+            "waveform_samples": entry.waveformSamples,
+            "audio_file_path": entry.audioFilePath,
+          };
+        }).toList();
+        unawaited(_storageService.clearEventHistory().then((_) {
+          _storageService.saveEventHistory(historyPayload);
+        }));
+      }
     });
   }
 
@@ -118,6 +221,8 @@ class _MonitorPageState extends State<MonitorPage> {
 
     try {
       await _runtimeBridge.startMonitoring(mode: _mode, backbone: _backbone);
+      _runtimeReadyBackbone = _backbone;
+      await _applyPersonalizedPrototypes();
     } catch (e) {
       _showErrorSnackBar("Failed to initialize ML engine: $e");
       return;
@@ -153,10 +258,11 @@ class _MonitorPageState extends State<MonitorPage> {
       return;
     }
     // Print Label & confidence for debugging. To be removed in final version.
-    // debugPrint("Received event: label=${event.label}, confidence=${event.confidence}");
+    debugPrint("Received event: label=${event.label}, confidence=${event.confidence}");
 
     // 1. Standardize label (background/unknown mapped to "background")
-    final String label = (event.isBackground || event.isUnknown) ? "background" : event.label;
+    final String label =
+        (event.isBackground || event.isUnknown) ? "background" : event.label;
     // 2. Add to prediction window
     _predictionWindow.add(label);
     if (_predictionWindow.length > _windowSize) {
@@ -185,23 +291,71 @@ class _MonitorPageState extends State<MonitorPage> {
       if (candidateLabel != null) {
         final double ratio = maxCount / _predictionWindow.length;
         if (ratio >= _onsetThreshold) {
+          // Load user overrides and check if detection is active
+          final Map<String, dynamic>? userOverrides = await _storageService.readClassConfig(candidateLabel!);
+          final bool enabled = userOverrides == null || (userOverrides["enabled"] as bool? ?? true);
+          if (!enabled) {
+            _activeNotifiedSound = null;
+            return;
+          }
+
           // Onset triggered!
           _activeNotifiedSound = candidateLabel;
 
-          // Trigger alerts & persist to logs
-          final String title = "Sound Detected!";
-          final String body = "$candidateLabel (${(event.confidence * 100).toStringAsFixed(0)}% confidence)";
-          unawaited(_runtimeBridge.showNotification(title: title, body: body));
+          final InferenceEvent evaluatedEvent = InferenceEvent(
+            label: candidateLabel!,
+            confidenceTier: event.confidenceTier,
+            confidence: event.confidence,
+            isUnknown: event.isUnknown,
+            isBackground: event.isBackground,
+            waveformSamples: event.waveformSamples,
+          );
 
-          if (_vibrationEnabled) {
-            unawaited(_runtimeBridge.vibrate());
+          // Evaluate event with the ContextManager and active mode settings
+          final AlertDecision decision = _contextManager.decideAlert(
+            event: evaluatedEvent,
+            activeMode: _mode,
+            userOverrides: userOverrides,
+          );
+
+          // Dispatch visual and haptic modalities if NOT suppressed
+          if (!decision.suppressed) {
+            final String cleanSoundName = formatSoundLabel(candidateLabel!);
+            final String title = "Sound Detected!";
+            final String body =
+                "$cleanSoundName (${(decision.confidence * 100).toStringAsFixed(0)}% confidence)";
+
+            switch (decision.modality) {
+              case AlertModality.none:
+              case AlertModality.silentLog:
+                break;
+              case AlertModality.textOnly:
+                unawaited(_runtimeBridge.showNotification(title: title, body: body));
+                break;
+              case AlertModality.standardVibrationText:
+                unawaited(_runtimeBridge.showNotification(title: title, body: body));
+                final String vibPattern = (userOverrides?["custom_vibration"] as String?) ?? "single";
+                unawaited(_triggerCustomAlertEffects(vibPattern, "none"));
+                break;
+              case AlertModality.vibrationFlashText:
+                unawaited(_runtimeBridge.showNotification(title: title, body: body));
+                final String vibPattern = (userOverrides?["custom_vibration"] as String?) ?? "single";
+                final String flsPattern = (userOverrides?["custom_flash"] as String?) ?? "single";
+                unawaited(_triggerCustomAlertEffects(vibPattern, flsPattern));
+                break;
+              case AlertModality.criticalFullScreen:
+                unawaited(_runtimeBridge.showNotification(
+                  title: "CRITICAL ALERT: $cleanSoundName",
+                  body: "Sound Pulse detected $cleanSoundName.",
+                ));
+                // Critical alert continuous bypass haptic cues: uses long and strobe flash for absolute safety
+                unawaited(_triggerCustomAlertEffects("long", "strobe"));
+                break;
+            }
           }
 
-          if (_cameraFlashEnabled) {
-            unawaited(_runtimeBridge.triggerCameraFlash());
-          }
-
-          final String detectionId = DateTime.now().microsecondsSinceEpoch.toString();
+          final String detectionId =
+              "${DateTime.now().microsecondsSinceEpoch}_${_detectionCounter++}";
           final DateTime capturedAt = DateTime.now();
           final List<double> waveformSamples =
               List<double>.from(event.waveformSamples, growable: false);
@@ -214,13 +368,22 @@ class _MonitorPageState extends State<MonitorPage> {
             return;
           }
 
+          final InferenceEvent finalEvent = InferenceEvent(
+            label: candidateLabel!,
+            confidenceTier: event.confidenceTier,
+            confidence: decision.confidence, // Use boosted confidence if any!
+            isUnknown: event.isUnknown,
+            isBackground: event.isBackground,
+            waveformSamples: event.waveformSamples,
+          );
+
           MonitorHistoryEntry? removedEntry;
           setState(() {
             _history.insert(
               0,
               MonitorHistoryEntry(
                 id: detectionId,
-                event: event,
+                event: finalEvent,
                 capturedAt: capturedAt,
                 waveformSamples: waveformSamples,
                 audioFilePath: audioFilePath,
@@ -230,6 +393,27 @@ class _MonitorPageState extends State<MonitorPage> {
               removedEntry = _history.removeLast();
             }
           });
+
+          final List<Map<String, dynamic>> historyPayload = _history.map((entry) {
+            return <String, dynamic>{
+              "event_id": entry.id,
+              "timestamp": entry.capturedAt.toIso8601String(),
+              "predicted_label": entry.event.label,
+              "confidence_tier": entry.event.confidenceTier,
+              "confidence": entry.event.confidence,
+              "is_unknown": entry.event.isUnknown,
+              "is_background": entry.event.isBackground,
+              "active_mode": _mode,
+              "was_user_alerted": !decision.suppressed,
+              "suppression_reason": decision.suppressionReason,
+              "alert_decision": decision.toMap(),
+              "waveform_samples": entry.waveformSamples,
+              "audio_file_path": entry.audioFilePath,
+            };
+          }).toList();
+          unawaited(_storageService.clearEventHistory().then((_) {
+            _storageService.saveEventHistory(historyPayload);
+          }));
 
           final String pathToDelete = removedEntry?.audioFilePath ?? "";
           if (pathToDelete.isNotEmpty) {
@@ -339,6 +523,8 @@ class _MonitorPageState extends State<MonitorPage> {
       try {
         await _runtimeBridge.stopMonitoring();
         await _runtimeBridge.startMonitoring(mode: _mode, backbone: backbone);
+        _runtimeReadyBackbone = backbone;
+        await _applyPersonalizedPrototypes();
       } catch (e) {
         _showErrorSnackBar("Failed to dynamically switch model: $e");
         setState(() {
@@ -381,24 +567,86 @@ class _MonitorPageState extends State<MonitorPage> {
     });
   }
 
+  Future<void> _setPersonalisationLevel(String level) async {
+    await _storageService.savePersonalisationLevel(level);
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _personalisationLevel = level;
+    });
+    await _applyPersonalizedPrototypes();
+  }
+
+  Future<void> _addCustomSoundClass(String label) async {
+    final String slug = "custom_${label.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '_')}";
+    if (_soundOptions.any((opt) => opt.slug == slug)) {
+      return;
+    }
+    await _storageService.saveClassConfig(slug, {
+      "slug": slug,
+      "label": label,
+      "is_custom": true,
+    });
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _soundOptions.add(PersonalizableSoundOption(slug, label));
+    });
+    unawaited(_applyPersonalizedPrototypes());
+  }
+
   Future<void> _saveRecordedSound(
     String name,
+    String classSlug,
+    String classLabel,
     String filePath,
     DateTime recordedAt,
     int durationSeconds,
   ) async {
+    final List<double> samples = await _readPcm16WavSamples(filePath);
+    final String? qualityWarning = _qualityWarning(samples, durationSeconds);
+    await _ensureRuntimeReady();
+    final List<double> embedding =
+        await _runtimeBridge.extractEmbeddingFromPcm(samples);
+
+    final String soundId =
+        "${DateTime.now().microsecondsSinceEpoch}_${_recordedSounds.length}";
+    final String encryptedPath = filePath.replaceFirst(".wav", ".enc");
+    try {
+      await _storageService.encryptFile(filePath, encryptedPath);
+      final File plainFile = File(filePath);
+      if (await plainFile.exists()) {
+        await plainFile.delete();
+      }
+    } catch (e) {
+      _showErrorSnackBar("Encryption failed: $e");
+      return;
+    }
+
     final CustomSoundSample sample = CustomSoundSample(
-      id: DateTime.now().microsecondsSinceEpoch.toString(),
+      id: soundId,
       name: name,
+      classSlug: classSlug,
+      classLabel: classLabel,
       recordedAt: recordedAt,
       durationSeconds: durationSeconds,
-      filePath: filePath,
+      filePath: encryptedPath,
+      embedding: embedding,
+      audit: <String, dynamic>{
+        "created_at": DateTime.now().toIso8601String(),
+        "backbone": _backbone,
+        "sample_rate_hz": 16000,
+        "quality_warning": qualityWarning,
+      },
     );
     final List<CustomSoundSample> nextSounds = <CustomSoundSample>[
       sample,
       ..._recordedSounds
     ];
     await _storageService.saveRecordedSounds(nextSounds);
+    await _refreshPersonalizedPrototype(classSlug, nextSounds);
     if (!mounted) {
       return;
     }
@@ -407,6 +655,9 @@ class _MonitorPageState extends State<MonitorPage> {
         ..clear()
         ..addAll(nextSounds);
     });
+    if (qualityWarning != null) {
+      _showErrorSnackBar(qualityWarning);
+    }
   }
 
   Future<void> _renameRecordedSound(
@@ -438,6 +689,7 @@ class _MonitorPageState extends State<MonitorPage> {
         .where((CustomSoundSample item) => item.id != sample.id)
         .toList(growable: false);
     await _storageService.saveRecordedSounds(nextSounds);
+    await _refreshPersonalizedPrototype(sample.classSlug, nextSounds);
     if (!mounted) {
       return;
     }
@@ -448,8 +700,233 @@ class _MonitorPageState extends State<MonitorPage> {
     });
   }
 
+  Future<void> _ensureRuntimeReady() async {
+    if (_runtimeReadyBackbone == _backbone) {
+      return;
+    }
+    await _runtimeBridge.initializeRuntime(backbone: _backbone);
+    _runtimeReadyBackbone = _backbone;
+    await _applyPersonalizedPrototypes();
+  }
+
+  Future<void> _applyPersonalizedPrototypes() async {
+    final List<String> classSlugs = _soundOptions.map((opt) => opt.slug).toList();
+
+    if (_personalisationLevel == "default") {
+      for (final String slug in classSlugs) {
+        await _runtimeBridge.resetPrototype(slug);
+      }
+      return;
+    }
+
+    final int minSamples = _personalisationLevel == "quick" ? 1 : 3;
+    final String sourceType = _personalisationLevel == "quick"
+        ? "quick_personalisation"
+        : "advanced_personalisation";
+
+    final Map<String, List<double>> centroids = {};
+
+    for (final String slug in classSlugs) {
+      final List<List<double>> embeddings = _recordedSounds
+          .where((CustomSoundSample sample) =>
+              sample.classSlug == slug && sample.embedding.isNotEmpty)
+          .map((CustomSoundSample sample) => sample.embedding)
+          .toList(growable: false);
+
+      if (embeddings.length >= minSamples) {
+        final int length = embeddings.first.length;
+        final List<double> centroid = List<double>.filled(length, 0.0);
+        for (final List<double> embedding in embeddings) {
+          for (int index = 0;
+              index < length && index < embedding.length;
+              index += 1) {
+            centroid[index] += embedding[index];
+          }
+        }
+        for (int index = 0; index < centroid.length; index += 1) {
+          centroid[index] /= embeddings.length;
+        }
+
+        centroids[slug] = centroid;
+        await _runtimeBridge.updatePrototype(
+          label: slug,
+          embedding: centroid,
+        );
+      } else {
+        await _runtimeBridge.resetPrototype(slug);
+      }
+    }
+
+    await _storageService.savePrototypeCentroids(centroids, sourceType: sourceType);
+  }
+
+  Future<void> _refreshPersonalizedPrototype(
+    String classSlug,
+    List<CustomSoundSample> sounds,
+  ) async {
+    final List<List<double>> embeddings = sounds
+        .where((CustomSoundSample sample) =>
+            sample.classSlug == classSlug && sample.embedding.isNotEmpty)
+        .map((CustomSoundSample sample) => sample.embedding)
+        .toList(growable: false);
+    final Map<String, List<double>> centroids = Map<String, List<double>>.from(
+        await _storageService.readPrototypeCentroids());
+
+    if (_personalisationLevel == "default") {
+      centroids.remove(classSlug);
+      await _storageService.savePrototypeCentroids(centroids);
+      await _runtimeBridge.resetPrototype(classSlug);
+      return;
+    }
+
+    final int minSamples = _personalisationLevel == "quick" ? 1 : 3;
+    final String sourceType = _personalisationLevel == "quick"
+        ? "quick_personalisation"
+        : "advanced_personalisation";
+
+    if (embeddings.length < minSamples) {
+      centroids.remove(classSlug);
+      await _storageService.savePrototypeCentroids(centroids, sourceType: sourceType);
+      if (_runtimeReadyBackbone == _backbone) {
+        await _runtimeBridge.resetPrototype(classSlug);
+      }
+      return;
+    }
+
+    final int length = embeddings.first.length;
+    final List<double> centroid = List<double>.filled(length, 0.0);
+    for (final List<double> embedding in embeddings) {
+      for (int index = 0;
+          index < length && index < embedding.length;
+          index += 1) {
+        centroid[index] += embedding[index];
+      }
+    }
+    for (int index = 0; index < centroid.length; index += 1) {
+      centroid[index] /= embeddings.length;
+    }
+
+    centroids[classSlug] = centroid;
+    await _storageService.savePrototypeCentroids(centroids, sourceType: sourceType);
+    await _ensureRuntimeReady();
+    await _runtimeBridge.updatePrototype(label: classSlug, embedding: centroid);
+  }
+
+  Future<void> _submitFeedback(String eventId, String label, String feedbackValue) async {
+    final Map<String, dynamic> feedbackMap = {
+      "event_label": label,
+      "user_feedback": feedbackValue,
+      "timestamp": DateTime.now().toIso8601String(),
+    };
+    await _storageService.saveFeedback(eventId, feedbackMap);
+    setState(() {
+      _submittedFeedback[eventId] = feedbackValue;
+    });
+  }
+
+  Future<List<double>> _readPcm16WavSamples(String filePath) async {
+    final Uint8List bytes = filePath.endsWith(".enc")
+        ? await _storageService.decryptFile(filePath)
+        : await File(filePath).readAsBytes();
+    if (bytes.length < 44) {
+      throw const FormatException("Recorded WAV file is too short.");
+    }
+    final ByteData data = ByteData.sublistView(bytes);
+    int offset = 12;
+    int? dataOffset;
+    int? dataSize;
+    while (offset + 8 <= bytes.length) {
+      final String chunkId =
+          String.fromCharCodes(bytes.sublist(offset, offset + 4));
+      final int chunkSize = data.getUint32(offset + 4, Endian.little);
+      if (chunkId == "data") {
+        dataOffset = offset + 8;
+        dataSize = chunkSize;
+        break;
+      }
+      offset += 8 + chunkSize + (chunkSize.isOdd ? 1 : 0);
+    }
+    if (dataOffset == null || dataSize == null) {
+      throw const FormatException("Recorded WAV file has no PCM data chunk.");
+    }
+    final int sampleCount = dataSize ~/ 2;
+    return List<double>.generate(sampleCount, (int index) {
+      final int byteOffset = dataOffset! + (index * 2);
+      if (byteOffset + 2 > bytes.length) {
+        return 0.0;
+      }
+      return (data.getInt16(byteOffset, Endian.little) / 32768.0)
+          .clamp(-1.0, 1.0);
+    }, growable: false);
+  }
+
+  String? _qualityWarning(List<double> samples, int durationSeconds) {
+    if (durationSeconds < 3 || samples.length < 16000 * 3) {
+      return "Sample is shorter than the recommended minimum duration.";
+    }
+    double sumSquares = 0.0;
+    double peak = 0.0;
+    for (final double sample in samples) {
+      final double absSample = sample.abs();
+      peak = peak > absSample ? peak : absSample;
+      sumSquares += sample * sample;
+    }
+    final double rms = samples.isEmpty
+        ? 0.0
+        : math.sqrt(sumSquares / samples.length.toDouble());
+    if (peak < 0.05 || rms < 0.01) {
+      return "Sample is very quiet. Re-record closer to the sound if accuracy is poor.";
+    }
+    if (peak > 0.98) {
+      return "Sample may be clipped. Re-record with a little more distance if accuracy is poor.";
+    }
+    return null;
+  }
+
+  Future<void> _triggerCustomAlertEffects(String vibrationPattern, String flashPattern) async {
+    if (_vibrationEnabled) {
+      if (vibrationPattern == "double") {
+        await _runtimeBridge.vibrate();
+        await Future.delayed(const Duration(milliseconds: 300));
+        await _runtimeBridge.vibrate();
+      } else if (vibrationPattern == "triple") {
+        await _runtimeBridge.vibrate();
+        await Future.delayed(const Duration(milliseconds: 250));
+        await _runtimeBridge.vibrate();
+        await Future.delayed(const Duration(milliseconds: 250));
+        await _runtimeBridge.vibrate();
+      } else if (vibrationPattern == "long") {
+        await _runtimeBridge.vibrate();
+        await Future.delayed(const Duration(milliseconds: 600));
+        await _runtimeBridge.vibrate();
+      } else if (vibrationPattern == "none") {
+        // Do nothing
+      } else {
+        await _runtimeBridge.vibrate();
+      }
+    }
+
+    if (_cameraFlashEnabled) {
+      if (flashPattern == "double") {
+        await _runtimeBridge.triggerCameraFlash();
+        await Future.delayed(const Duration(milliseconds: 350));
+        await _runtimeBridge.triggerCameraFlash();
+      } else if (flashPattern == "strobe") {
+        for (int i = 0; i < 4; i++) {
+          await _runtimeBridge.triggerCameraFlash();
+          await Future.delayed(const Duration(milliseconds: 150));
+        }
+      } else if (flashPattern == "none") {
+        // Do nothing
+      } else {
+        await _runtimeBridge.triggerCameraFlash();
+      }
+    }
+  }
+
   @override
   void dispose() {
+    _contextManager.reset();
     for (final MonitorHistoryEntry entry in _history) {
       if (entry.audioFilePath.isNotEmpty) {
         unawaited(_deleteDetectionFile(entry.audioFilePath));
@@ -528,13 +1005,27 @@ class _MonitorPageState extends State<MonitorPage> {
             ),
             const Spacer(),
             GestureDetector(
-              onTap: () => setState(() => _tabIndex = 2),
+              onTap: () {
+                if (_tabIndex == 3) {
+                  setState(() {
+                    _tabIndex = _previousTabIndex;
+                  });
+                } else {
+                  setState(() {
+                    _previousTabIndex = _tabIndex;
+                    _tabIndex = 3;
+                  });
+                }
+              },
               child: Container(
                 width: 40,
                 height: 40,
                 decoration: monitorRaised(radius: 12),
-                child: const Icon(Icons.settings,
-                    size: 20, color: monitorOnSurfaceVariant),
+                child: Icon(
+                  _tabIndex == 3 ? Icons.arrow_back : Icons.settings,
+                  size: 20,
+                  color: monitorOnSurfaceVariant,
+                ),
               ),
             ),
           ],
@@ -564,17 +1055,36 @@ class _MonitorPageState extends State<MonitorPage> {
                   onBackboneChanged: _changeBackbone,
                   onContextAwareChanged: _setContextAware,
                   onViewAll: () => setState(() => _tabIndex = 1),
+                  submittedFeedback: _submittedFeedback,
+                  onSubmitFeedback: _submitFeedback,
                 ),
-                MonitorHistoryTab(history: _history),
+                MonitorHistoryTab(
+                  history: _history,
+                  submittedFeedback: _submittedFeedback,
+                  onSubmitFeedback: _submitFeedback,
+                ),
                 MonitorRecordTab(
+                  key: const ValueKey("MonitorRecordTab"),
                   recordedSounds: _recordedSounds,
+                  soundOptions: _soundOptions,
+                  personalisationLevel: _personalisationLevel,
                   vibrationEnabled: _vibrationEnabled,
                   cameraFlashEnabled: _cameraFlashEnabled,
+                  onPersonalisationLevelChanged: _setPersonalisationLevel,
                   onVibrationToggle: _setVibrationEnabled,
                   onCameraFlashToggle: _setCameraFlashEnabled,
                   onSaveSound: _saveRecordedSound,
                   onRenameSound: _renameRecordedSound,
                   onDeleteSound: _deleteRecordedSound,
+                  onDecryptFile: _storageService.decryptToTempFile,
+                  onAddCustomClass: _addCustomSoundClass,
+                ),
+                MonitorSettingsTab(
+                  activeMode: _mode,
+                  contextAware: _contextAware,
+                  onModeChanged: _changeMode,
+                  onContextAwareChanged: _setContextAware,
+                  onBack: () => setState(() => _tabIndex = _previousTabIndex),
                 ),
               ],
             ),
@@ -582,7 +1092,7 @@ class _MonitorPageState extends State<MonitorPage> {
         ],
       ),
       bottomNavigationBar: NavigationBar(
-        selectedIndex: _tabIndex,
+        selectedIndex: _tabIndex == 3 ? _previousTabIndex : _tabIndex,
         onDestinationSelected: (int index) {
           setState(() => _tabIndex = index);
         },

@@ -7,7 +7,13 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Hive.initFlutter();
   await Hive.openBox<dynamic>("soundpulse.settings");
-  await Hive.openBox<dynamic>("soundpulse.recordings");
+  await Hive.openBox<dynamic>("soundpulse.class_config");
+  await Hive.openBox<dynamic>("soundpulse.prototype");
+  await Hive.openBox<dynamic>("soundpulse.threshold");
+  await Hive.openBox<dynamic>("soundpulse.mode_policy");
+  await Hive.openBox<dynamic>("soundpulse.event_history");
+  await Hive.openBox<dynamic>("soundpulse.feedback");
+  await Hive.openBox<dynamic>("soundpulse.recording_metadata");
   runApp(const SoundPulseApp());
 }
 

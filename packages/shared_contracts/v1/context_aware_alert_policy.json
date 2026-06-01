@@ -1,0 +1,618 @@
+{
+  "schema_version": "1.1.1",
+  "policy_name": "SoundPulse Context-Aware Alert Policy",
+  "description": "Runtime alert policy for SoundPulse. This file is informed by formative user research, but it excludes direct research statistics and respondent-level data.",
+  "source_basis": {
+    "notes": [
+      "Sound classes, alert channels, context modes, and priority rules are informed by formative user research with Deaf and Hard-of-Hearing users in Nigeria.",
+      "The policy is designed to reduce notification overload while preserving strong alerts for safety-critical sounds.",
+    ],
+    "design_rationale_summary": {
+      "primary_alert_channels": [
+        "phone_vibration",
+        "screen_or_camera_flash",
+        "on_screen_text",
+        "full_screen_alert_for_critical_sounds"
+      ],
+      "primary_contexts": [
+        "sleeping_or_night_time",
+        "general_daily_use",
+        "focused_activity",
+        "cooking_or_chores",
+        "bathroom_or_phone_not_in_hand"
+      ],
+      "main_design_concerns": [
+        "notification_overload",
+        "false_alerts",
+        "missed_urgent_sounds",
+        "battery_usage",
+        "privacy",
+        "locally_relevant_home_sounds"
+      ]
+    }
+  },
+  "global_defaults": {
+    "active_mode": "general",
+    "context_manager_enabled": true,
+    "unknown_sound_policy": "log_only_unless_user_enabled",
+    "background_sound_policy": "suppress",
+    "minimum_seconds_between_same_non_critical_alerts": 60,
+    "minimum_seconds_between_same_useful_alerts": 120,
+    "minimum_seconds_between_same_critical_alerts": 10,
+    "event_history_window_seconds": 15,
+    "max_repeated_critical_alerts": 5,
+    "critical_alert_repeat_interval_seconds": 8,
+    "default_top_n_candidates": 3,
+    "confidence_tiers": {
+      "high": {
+        "min_score": 0.8,
+        "display_rule": "show_exact_label"
+      },
+      "medium": {
+        "min_score": 0.55,
+        "display_rule": "show_top_n_candidates"
+      },
+      "low": {
+        "min_score": 0.0,
+        "display_rule": "show_generic_sound_detected_or_log"
+      }
+    },
+    "privacy": {
+      "store_raw_environmental_audio_by_default": false,
+      "store_user_recorded_personalisation_audio": true,
+      "allow_user_delete_recordings": true,
+      "allow_pause_monitoring": true
+    }
+  },
+  "alert_modalities": {
+    "none": {
+      "notify": false,
+      "log_event": true,
+      "description": "No user-facing alert. Event may be logged locally."
+    },
+    "silent_log": {
+      "notify": false,
+      "log_event": true,
+      "description": "Store event in local history without notifying the user."
+    },
+    "text_only": {
+      "notify": true,
+      "visual_notification": true,
+      "vibration": false,
+      "flash": false,
+      "full_screen": false
+    },
+    "standard_vibration_text": {
+      "notify": true,
+      "visual_notification": true,
+      "vibration": true,
+      "vibration_pattern": "standard_double_pulse",
+      "flash": false,
+      "full_screen": false
+    },
+    "vibration_flash_text": {
+      "notify": true,
+      "visual_notification": true,
+      "vibration": true,
+      "vibration_pattern": "strong_triple_pulse",
+      "flash": true,
+      "flash_pattern": "short_blink_sequence",
+      "full_screen": false
+    },
+    "critical_full_screen": {
+      "notify": true,
+      "visual_notification": true,
+      "vibration": true,
+      "vibration_pattern": "urgent_repeating_pulse",
+      "flash": true,
+      "flash_pattern": "urgent_repeating_blink",
+      "full_screen": true,
+      "repeat_until_acknowledged": true
+    },
+    "wearable_optional": {
+      "notify": true,
+      "visual_notification": true,
+      "vibration": true,
+      "wearable_vibration": "if_available_and_enabled",
+      "flash": false,
+      "full_screen": false,
+      "description": "Optional future path. Phone remains the primary alert device in v1."
+    }
+  },
+  "sound_classes": {
+    "door_gate_knock": {
+      "display_label": "Door or gate knock",
+      "design_importance": "high",
+      "base_priority": "important",
+      "default_modality": "vibration_flash_text",
+      "allow_user_disable": true,
+      "critical_override": false
+    },
+    "speech_name_call": {
+      "display_label": "Someone calling or speech nearby",
+      "design_importance": "high",
+      "base_priority": "important",
+      "default_modality": "standard_vibration_text",
+      "allow_user_disable": true,
+      "critical_override": false
+    },
+    "security_alarm": {
+      "display_label": "Security alarm",
+      "design_importance": "high",
+      "base_priority": "critical",
+      "default_modality": "critical_full_screen",
+      "allow_user_disable": false,
+      "critical_override": true
+    },
+    "gas_warning_alarm": {
+      "display_label": "Gas warning or cooker alarm",
+      "design_importance": "high",
+      "base_priority": "critical",
+      "default_modality": "critical_full_screen",
+      "allow_user_disable": false,
+      "critical_override": true
+    },
+    "water_running_overflow": {
+      "display_label": "Water running or overflow",
+      "design_importance": "medium_high",
+      "base_priority": "useful",
+      "default_modality": "standard_vibration_text",
+      "allow_user_disable": true,
+      "critical_override": false
+    },
+    "baby_crying": {
+      "display_label": "Baby crying",
+      "design_importance": "medium_high",
+      "base_priority": "important",
+      "default_modality": "vibration_flash_text",
+      "allow_user_disable": true,
+      "critical_override": false
+    },
+    "generator_changeover": {
+      "display_label": "Generator starting, stopping, or changeover",
+      "design_importance": "medium_high",
+      "base_priority": "useful",
+      "default_modality": "standard_vibration_text",
+      "allow_user_disable": true,
+      "critical_override": false,
+      "repeat_suppression": {
+        "suppress_continuous_hum": true,
+        "minimum_seconds_between_alerts": 300
+      }
+    },
+    "fire_smoke_alarm": {
+      "display_label": "Fire or smoke alarm sound",
+      "design_importance": "high",
+      "base_priority": "critical",
+      "default_modality": "critical_full_screen",
+      "allow_user_disable": false,
+      "critical_override": true
+    },
+    "inverter_ups_beep": {
+      "display_label": "Inverter or UPS beep",
+      "design_importance": "medium",
+      "base_priority": "useful",
+      "default_modality": "standard_vibration_text",
+      "allow_user_disable": true,
+      "critical_override": false,
+      "repeat_suppression": {
+        "minimum_seconds_between_alerts": 180
+      }
+    },
+    "distress_shout_whistle": {
+      "display_label": "Distress shout or whistle",
+      "design_importance": "high",
+      "base_priority": "critical",
+      "default_modality": "critical_full_screen",
+      "allow_user_disable": false,
+      "critical_override": true
+    },
+    "background": {
+      "display_label": "Background noise",
+      "design_importance": "system_control",
+      "base_priority": "background",
+      "default_modality": "none",
+      "allow_user_disable": false,
+      "critical_override": false
+    },
+    "unknown": {
+      "display_label": "Unknown sound",
+      "design_importance": "system_control",
+      "base_priority": "low",
+      "default_modality": "silent_log",
+      "allow_user_disable": true,
+      "critical_override": false
+    }
+  },
+  "modes": {
+    "general": {
+      "display_label": "General",
+      "description": "Balanced everyday mode.",
+      "enabled_priorities": [
+        "critical",
+        "important",
+        "useful"
+      ],
+      "suppressed_priorities": [
+        "background"
+      ],
+      "unknown_policy": "silent_log",
+      "default_modality_overrides": {},
+      "threshold_adjustments": {
+        "critical": {
+          "sensitivity": "high",
+          "distance_threshold_multiplier": 1.1,
+          "loudness_floor_multiplier": 0.9
+        },
+        "important": {
+          "sensitivity": "medium",
+          "distance_threshold_multiplier": 1.0,
+          "loudness_floor_multiplier": 1.0
+        },
+        "useful": {
+          "sensitivity": "medium",
+          "distance_threshold_multiplier": 0.95,
+          "loudness_floor_multiplier": 1.05
+        }
+      }
+    },
+    "sleep": {
+      "display_label": "Sleep",
+      "description": "Night/sleeping mode. Reduces low-value alerts but keeps urgent sounds strong.",
+      "enabled_priorities": [
+        "critical",
+        "important"
+      ],
+      "suppressed_priorities": [
+        "useful",
+        "low",
+        "background"
+      ],
+      "unknown_policy": "suppress",
+      "default_modality_overrides": {
+        "critical": "critical_full_screen",
+        "important": "vibration_flash_text",
+        "useful": "silent_log"
+      },
+      "class_overrides": {
+        "door_gate_knock": {
+          "priority": "important",
+          "modality": "vibration_flash_text",
+          "repeat_once_if_unacknowledged": true
+        },
+        "speech_name_call": {
+          "priority": "important",
+          "modality": "standard_vibration_text",
+          "require_medium_or_high_confidence": true
+        },
+        "generator_changeover": {
+          "priority": "useful",
+          "modality": "silent_log",
+          "suppress_unless_user_enabled": true
+        },
+        "inverter_ups_beep": {
+          "priority": "useful",
+          "modality": "silent_log",
+          "suppress_unless_user_enabled": true
+        },
+        "water_running_overflow": {
+          "priority": "useful",
+          "modality": "silent_log",
+          "suppress_unless_user_enabled": true
+        }
+      },
+      "threshold_adjustments": {
+        "critical": {
+          "sensitivity": "very_high",
+          "distance_threshold_multiplier": 1.2,
+          "loudness_floor_multiplier": 0.85
+        },
+        "important": {
+          "sensitivity": "medium_high",
+          "distance_threshold_multiplier": 1.05,
+          "loudness_floor_multiplier": 0.95
+        },
+        "useful": {
+          "sensitivity": "low",
+          "distance_threshold_multiplier": 0.75,
+          "loudness_floor_multiplier": 1.3
+        }
+      }
+    },
+    "focus": {
+      "display_label": "Focus",
+      "description": "Low-interruption mode. Critical sounds always alert; important sounds alert only if user enables them.",
+      "enabled_priorities": [
+        "critical"
+      ],
+      "optional_priorities": [
+        "important"
+      ],
+      "suppressed_priorities": [
+        "useful",
+        "low",
+        "background"
+      ],
+      "unknown_policy": "suppress",
+      "default_modality_overrides": {
+        "critical": "critical_full_screen",
+        "important": "standard_vibration_text",
+        "useful": "silent_log"
+      },
+      "threshold_adjustments": {
+        "critical": {
+          "sensitivity": "high",
+          "distance_threshold_multiplier": 1.1,
+          "loudness_floor_multiplier": 0.9
+        },
+        "important": {
+          "sensitivity": "low",
+          "distance_threshold_multiplier": 0.85,
+          "loudness_floor_multiplier": 1.15
+        },
+        "useful": {
+          "sensitivity": "very_low",
+          "distance_threshold_multiplier": 0.7,
+          "loudness_floor_multiplier": 1.4
+        }
+      }
+    },
+    "cooking": {
+      "display_label": "Cooking",
+      "description": "Prioritises kitchen and household risk sounds.",
+      "enabled_priorities": [
+        "critical",
+        "important",
+        "useful"
+      ],
+      "suppressed_priorities": [
+        "background"
+      ],
+      "unknown_policy": "silent_log",
+      "class_overrides": {
+        "gas_warning_alarm": {
+          "priority": "critical",
+          "modality": "critical_full_screen"
+        },
+        "fire_smoke_alarm": {
+          "priority": "critical",
+          "modality": "critical_full_screen"
+        },
+        "water_running_overflow": {
+          "priority": "important",
+          "modality": "vibration_flash_text"
+        },
+        "door_gate_knock": {
+          "priority": "important",
+          "modality": "vibration_flash_text"
+        },
+        "generator_changeover": {
+          "priority": "useful",
+          "modality": "standard_vibration_text"
+        }
+      },
+      "threshold_adjustments": {
+        "critical": {
+          "sensitivity": "very_high",
+          "distance_threshold_multiplier": 1.2,
+          "loudness_floor_multiplier": 0.85
+        },
+        "important": {
+          "sensitivity": "medium_high",
+          "distance_threshold_multiplier": 1.05,
+          "loudness_floor_multiplier": 0.95
+        },
+        "useful": {
+          "sensitivity": "medium",
+          "distance_threshold_multiplier": 0.95,
+          "loudness_floor_multiplier": 1.05
+        }
+      }
+    },
+    "bathroom": {
+      "display_label": "Bathroom",
+      "description": "Uses stronger visual/haptic cues because the phone may not be in the user's hand.",
+      "enabled_priorities": [
+        "critical",
+        "important"
+      ],
+      "suppressed_priorities": [
+        "useful",
+        "low",
+        "background"
+      ],
+      "unknown_policy": "suppress",
+      "default_modality_overrides": {
+        "critical": "critical_full_screen",
+        "important": "vibration_flash_text",
+        "useful": "silent_log"
+      },
+      "class_overrides": {
+        "door_gate_knock": {
+          "priority": "important",
+          "modality": "vibration_flash_text",
+          "repeat_once_if_unacknowledged": true
+        },
+        "speech_name_call": {
+          "priority": "important",
+          "modality": "vibration_flash_text",
+          "require_medium_or_high_confidence": true
+        },
+        "security_alarm": {
+          "priority": "critical",
+          "modality": "critical_full_screen"
+        },
+        "gas_warning_alarm": {
+          "priority": "critical",
+          "modality": "critical_full_screen"
+        },
+        "fire_smoke_alarm": {
+          "priority": "critical",
+          "modality": "critical_full_screen"
+        }
+      },
+      "threshold_adjustments": {
+        "critical": {
+          "sensitivity": "very_high",
+          "distance_threshold_multiplier": 1.2,
+          "loudness_floor_multiplier": 0.85
+        },
+        "important": {
+          "sensitivity": "medium_high",
+          "distance_threshold_multiplier": 1.05,
+          "loudness_floor_multiplier": 0.95
+        },
+        "useful": {
+          "sensitivity": "low",
+          "distance_threshold_multiplier": 0.8,
+          "loudness_floor_multiplier": 1.25
+        }
+      }
+    },
+    "no_context": {
+      "display_label": "No Context / Evaluation",
+      "description": "Baseline mode for evaluation. Does not apply context-based suppression or boosts.",
+      "enabled_priorities": [
+        "critical",
+        "important",
+        "useful",
+        "low"
+      ],
+      "suppressed_priorities": [
+        "background"
+      ],
+      "unknown_policy": "show_generic_if_enabled_else_log",
+      "default_modality_overrides": {},
+      "threshold_adjustments": {
+        "critical": {
+          "sensitivity": "default",
+          "distance_threshold_multiplier": 1.0,
+          "loudness_floor_multiplier": 1.0
+        },
+        "important": {
+          "sensitivity": "default",
+          "distance_threshold_multiplier": 1.0,
+          "loudness_floor_multiplier": 1.0
+        },
+        "useful": {
+          "sensitivity": "default",
+          "distance_threshold_multiplier": 1.0,
+          "loudness_floor_multiplier": 1.0
+        }
+      }
+    }
+  },
+  "event_chains": [
+    {
+      "id": "knock_then_speech",
+      "sequence": [
+        "door_gate_knock",
+        "speech_name_call"
+      ],
+      "window_seconds": 15,
+      "action": {
+        "raise_priority_of_second_event_to": "important",
+        "modality": "vibration_flash_text",
+        "confidence_boost": 0.05,
+        "reason": "A knock is often followed by speech or someone calling nearby."
+      }
+    },
+    {
+      "id": "security_then_distress",
+      "sequence": [
+        "security_alarm",
+        "distress_shout_whistle"
+      ],
+      "window_seconds": 15,
+      "action": {
+        "keep_priority": "critical",
+        "modality": "critical_full_screen",
+        "repeat_until_acknowledged": true,
+        "reason": "Security alarm followed by distress sound should remain high urgency."
+      }
+    },
+    {
+      "id": "fire_or_gas_then_any_urgent",
+      "sequence_starts_with_any": [
+        "fire_smoke_alarm",
+        "gas_warning_alarm"
+      ],
+      "followed_by_any": [
+        "distress_shout_whistle",
+        "security_alarm"
+      ],
+      "window_seconds": 15,
+      "action": {
+        "keep_priority": "critical",
+        "modality": "critical_full_screen",
+        "repeat_until_acknowledged": true,
+        "reason": "Multiple urgent cues within a short period should increase urgency."
+      }
+    }
+  ],
+  "notification_overload_controls": {
+    "deduplicate_same_class_within_seconds": {
+      "critical": 10,
+      "important": 45,
+      "useful": 120,
+      "low": 300
+    },
+    "suppress_repeated_low_confidence_events": true,
+    "low_confidence_repeat_limit_per_10_minutes": 3,
+    "convert_repeated_unknowns_to_silent_log": true,
+    "allow_user_disable_non_critical_classes": true,
+    "allow_user_set_quiet_hours": true,
+    "always_allow_critical_during_quiet_hours": true
+  },
+  "runtime_decision_order": [
+    "Receive inference result from runtime engine.",
+    "If label is background, suppress and optionally log.",
+    "If result is unknown, apply unknown_sound_policy for active mode.",
+    "Assign base priority from sound_classes.",
+    "Apply active mode class overrides and priority rules.",
+    "Apply event-chain boosts using recent event buffer.",
+    "Apply notification overload controls and deduplication.",
+    "Choose alert modality from class, mode, and priority.",
+    "Render alert or store silent log.",
+    "Request optional user feedback: correct, wrong, or not sure."
+  ],
+  "local_storage_contract": {
+    "database": "Hive",
+    "boxes_used_by_context_manager": {
+      "app_settings_box": [
+        "active_mode",
+        "context_manager_enabled",
+        "quiet_hours",
+        "flash_enabled",
+        "vibration_enabled"
+      ],
+      "class_config_box": [
+        "class_enabled",
+        "priority_level",
+        "user_alert_modality",
+        "mode_permissions"
+      ],
+      "threshold_box": [
+        "distance_threshold",
+        "loudness_floor",
+        "confidence_thresholds"
+      ],
+      "mode_policy_box": [
+        "mode_rules",
+        "priority_overrides",
+        "modality_overrides"
+      ],
+      "event_history_box": [
+        "recent_events",
+        "suppression_reason",
+        "alert_decision"
+      ],
+      "feedback_box": [
+        "correct",
+        "wrong",
+        "not_sure"
+      ]
+    },
+    "raw_audio_storage": "Do not store raw environmental audio by default. Store only user-recorded personalisation samples as local encrypted files where supported."
+  }
+}

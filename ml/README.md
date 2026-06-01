@@ -19,7 +19,7 @@ Directory layout:
 - `scripts/`: executable entrypoints for validation, data prep, training, and export.
 - `src/soundpulse_ml/`: reusable Python modules.
 
-Immediate commands:
+Immediate commands (To be done within ml folder):
 
 - `python -m soundpulse_ml.contracts`: print resolved contract summary.
 - `python scripts/validate_contracts.py`: validate required shared contract files exist and are internally consistent.

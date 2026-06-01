@@ -1,7 +1,7 @@
 {
   "status": "pass",
-  "baseline_path": "evaluation\\fixtures\\preprocessing_parity_baseline.v1.json",
-  "preprocessing_config_path": "..\\packages\\shared_contracts\\v1\\preprocessing_config.json",
+  "baseline_path": "ml\\evaluation\\fixtures\\preprocessing_parity_baseline.v1.json",
+  "preprocessing_config_path": "packages\\shared_contracts\\v1\\preprocessing_config.json",
   "tolerance": {
     "atol": 1e-06,
     "rtol": 1e-05

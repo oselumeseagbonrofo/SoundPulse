@@ -55,3 +55,15 @@ String monitorTimeAgo(DateTime timestamp) {
 String monitorLabelForMode(String mode) {
   return "${mode[0].toUpperCase()}${mode.substring(1)}";
 }
+
+String formatSoundLabel(String label) {
+  String clean = label;
+  if (clean.startsWith("custom_")) {
+    clean = clean.substring(7);
+  }
+  clean = clean.replaceAll("_", " ");
+  if (clean.isEmpty) {
+    return "";
+  }
+  return clean[0].toUpperCase() + clean.substring(1);
+}
