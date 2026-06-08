@@ -1,60 +1,88 @@
 package com.example.soundpulse_mobile
 
 import android.Manifest
-import android.content.pm.PackageManager
-import android.media.AudioFormat
-import android.media.AudioRecord
-import android.media.MediaRecorder
-import com.soundpulse.runtime.InferenceResult
-import com.soundpulse.runtime.Mode
-import com.soundpulse.runtime.RuntimeEngine
-import com.soundpulse.runtime.LiteRtRuntimeFactory
-import com.soundpulse.runtime.RuntimeArtifactLoader
-import com.soundpulse.runtime.LiteRtModelLoader
-import com.soundpulse.runtime.RuntimeBackbone
-import com.soundpulse.runtime.LiteRtEmbeddingExtractor
-import com.soundpulse.runtime.TinyCnnEmbeddingExtractor
-import android.os.Handler
-import android.os.Looper
-import androidx.core.content.ContextCompat
-import io.flutter.embedding.engine.FlutterEngine
-import io.flutter.embedding.android.FlutterActivity
-import io.flutter.plugin.common.EventChannel
-import io.flutter.plugin.common.MethodChannel
+import android.content.ComponentName
 import android.content.Context
-import android.os.Vibrator
-import android.os.VibrationEffect
-import android.os.Build
+import android.content.Intent
+import android.content.ServiceConnection
+import android.content.pm.PackageManager
 import android.hardware.camera2.CameraManager
+import android.os.Build
+import android.os.Handler
+import android.os.IBinder
+import android.os.Looper
+import android.os.PowerManager
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.provider.Settings
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
-import android.content.Intent
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
+import com.soundpulse.runtime.InferenceResult
+import io.flutter.embedding.android.FlutterActivity
+import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.plugin.common.EventChannel
+import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
     private val methodChannelName = "soundpulse.runtime/methods"
     private val eventChannelName = "soundpulse.runtime/events"
     private val mainHandler = Handler(Looper.getMainLooper())
-    private val monitoringLock = Any()
-    private val sampleRateHz = 16_000
-    private val captureChunkSamples = 1024
-    private val channelConfig = AudioFormat.CHANNEL_IN_MONO
-    private val audioFormat = AudioFormat.ENCODING_PCM_16BIT
-
-    private var runtimeEngine: RuntimeEngine? = null
-
-    private var eventSink: EventChannel.EventSink? = null
-    private var mode: Mode = Mode.GENERAL
-    private var contextAware: Boolean = false
-    private var audioRecord: AudioRecord? = null
-    private var captureThread: Thread? = null
-    @Volatile private var captureRunning: Boolean = false
-
     private val channelId = "soundpulse_alerts"
     private val channelName = "Sound Detection Alerts"
     private val channelDescription = "Notifications for detected sounds"
     private var notificationIdCounter = 0
+
+    private var soundService: SoundMonitoringService? = null
+    private var isServiceBound = false
+    private var eventSink: EventChannel.EventSink? = null
+
+    private val serviceConnection = object : ServiceConnection {
+        override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
+            val binder = service as? SoundMonitoringService.SoundMonitoringBinder
+            val s = binder?.getService()
+            soundService = s
+            isServiceBound = true
+
+            // Set the listener to receive results
+            s?.registerListener(object : SoundMonitoringService.Listener {
+                override fun onInferenceResult(result: InferenceResult, frameSamples: FloatArray) {
+                    dispatchResults(listOf(result), frameSamples)
+                }
+                override fun onError(code: String, message: String) {
+                    dispatchMonitoringError(code, message)
+                }
+            })
+        }
+
+        override fun onServiceDisconnected(name: ComponentName?) {
+            soundService?.unregisterListener()
+            soundService = null
+            isServiceBound = false
+        }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        val prefs = getSharedPreferences("soundpulse", Context.MODE_PRIVATE)
+        val active = prefs.getBoolean("monitoring_active", false)
+        if (active) {
+            val intent = Intent(this, SoundMonitoringService::class.java)
+            bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE)
+        }
+    }
+
+    override fun onStop() {
+        if (isServiceBound) {
+            soundService?.unregisterListener()
+            unbindService(serviceConnection)
+            isServiceBound = false
+            soundService = null
+        }
+        super.onStop()
+    }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -64,7 +92,7 @@ class MainActivity : FlutterActivity() {
             .setMethodCallHandler { call, result ->
                 when (call.method) {
                     "startMonitoring" -> {
-                        mode = parseMode(call.argument<String>("mode"))
+                        val activeModeStr = call.argument<String>("mode") ?: "general"
                         val backbone = call.argument<String>("backbone") ?: "tiny_cnn"
                         val modelPath = call.argument<String>("modelPath")
                         val classLabelsPath = call.argument<String>("classLabelsPath")
@@ -72,14 +100,15 @@ class MainActivity : FlutterActivity() {
                         val thresholdDefaultsPath = call.argument<String>("thresholdDefaultsPath")
                         val prototypeStorePath = call.argument<String>("prototypeStorePath")
 
-                        val startError = initializeRuntime(
+                        val startError = startMonitoring(
                             backbone,
                             modelPath,
                             classLabelsPath,
                             preprocessingConfigPath,
                             thresholdDefaultsPath,
-                            prototypeStorePath
-                        ) ?: startMonitoring()
+                            prototypeStorePath,
+                            activeModeStr
+                        )
 
                         if (startError == null) {
                             result.success(null)
@@ -89,13 +118,20 @@ class MainActivity : FlutterActivity() {
                     }
 
                     "initializeRuntime" -> {
+                        val backbone = call.argument<String>("backbone") ?: "tiny_cnn"
+                        val modelPath = call.argument<String>("modelPath")
+                        val classLabelsPath = call.argument<String>("classLabelsPath")
+                        val preprocessingConfigPath = call.argument<String>("preprocessingConfigPath")
+                        val thresholdDefaultsPath = call.argument<String>("thresholdDefaultsPath")
+                        val prototypeStorePath = call.argument<String>("prototypeStorePath")
+
                         val initError = initializeRuntime(
-                            call.argument<String>("backbone") ?: "tiny_cnn",
-                            call.argument<String>("modelPath"),
-                            call.argument<String>("classLabelsPath"),
-                            call.argument<String>("preprocessingConfigPath"),
-                            call.argument<String>("thresholdDefaultsPath"),
-                            call.argument<String>("prototypeStorePath")
+                            backbone,
+                            modelPath,
+                            classLabelsPath,
+                            preprocessingConfigPath,
+                            thresholdDefaultsPath,
+                            prototypeStorePath
                         )
                         if (initError == null) {
                             result.success(null)
@@ -110,28 +146,32 @@ class MainActivity : FlutterActivity() {
                     }
 
                     "updateMode" -> {
-                        mode = parseMode(call.argument<String>("mode"))
-                        runtimeEngine?.updateMode(mode)
+                        val activeModeStr = call.argument<String>("mode") ?: "general"
+                        soundService?.updateMode(activeModeStr)
                         result.success(null)
                     }
 
                     "setContextAware" -> {
-                        contextAware = call.argument<Boolean>("enabled") ?: false
                         result.success(null)
                     }
 
                     "pushAudioPcm" -> {
                         val rawSamples = call.argument<List<Number>>("samples").orEmpty()
                         val samples = FloatArray(rawSamples.size) { index -> rawSamples[index].toFloat() }
-                        val results = runtimeEngine?.pushAudioPcm(samples).orEmpty()
-                        dispatchResults(results, samples)
-                        result.success(results.map { item -> toPayload(item, samples) })
+                        val engine = soundService?.getRuntimeEngine()
+                        if (engine == null) {
+                            result.error("runtime_not_initialized", "Initialize runtime before pushing audio.", null)
+                        } else {
+                            val results = engine.pushAudioPcm(samples)
+                            dispatchResults(results, samples)
+                            result.success(results.map { item -> toPayload(item, samples) })
+                        }
                     }
 
                     "extractEmbeddingFromPcm" -> {
                         val rawSamples = call.argument<List<Number>>("samples").orEmpty()
                         val samples = FloatArray(rawSamples.size) { index -> rawSamples[index].toFloat() }
-                        val engine = runtimeEngine
+                        val engine = soundService?.getRuntimeEngine()
                         if (engine == null) {
                             result.error("runtime_not_initialized", "Initialize runtime before extracting embeddings.", null)
                         } else {
@@ -146,7 +186,7 @@ class MainActivity : FlutterActivity() {
                     "updatePrototype" -> {
                         val label = call.argument<String>("label").orEmpty()
                         val rawEmbedding = call.argument<List<Number>>("embedding").orEmpty()
-                        val engine = runtimeEngine
+                        val engine = soundService?.getRuntimeEngine()
                         if (engine == null) {
                             result.error("runtime_not_initialized", "Initialize runtime before updating prototypes.", null)
                         } else if (label.isBlank() || rawEmbedding.isEmpty()) {
@@ -163,7 +203,7 @@ class MainActivity : FlutterActivity() {
 
                     "resetPrototype" -> {
                         val label = call.argument<String>("label").orEmpty()
-                        val engine = runtimeEngine
+                        val engine = soundService?.getRuntimeEngine()
                         if (engine == null) {
                             result.error("runtime_not_initialized", "Initialize runtime before resetting prototypes.", null)
                         } else if (label.isBlank()) {
@@ -202,6 +242,32 @@ class MainActivity : FlutterActivity() {
                         result.success(true)
                     }
 
+                    "isMonitoringActive" -> {
+                        val prefs = getSharedPreferences("soundpulse", Context.MODE_PRIVATE)
+                        result.success(prefs.getBoolean("monitoring_active", false))
+                    }
+
+                    "isBatteryOptimizationIgnored" -> {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                            val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
+                            result.success(pm.isIgnoringBatteryOptimizations(packageName))
+                        } else {
+                            result.success(true)
+                        }
+                    }
+
+                    "requestIgnoreBatteryOptimizations" -> {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                            val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                                data = android.net.Uri.parse("package:$packageName")
+                            }
+                            startActivity(intent)
+                            result.success(true)
+                        } else {
+                            result.success(true)
+                        }
+                    }
+
                     else -> result.notImplemented()
                 }
             }
@@ -221,16 +287,55 @@ class MainActivity : FlutterActivity() {
     }
 
     override fun onDestroy() {
-        stopMonitoring()
+        if (isServiceBound) {
+            soundService?.unregisterListener()
+            unbindService(serviceConnection)
+            isServiceBound = false
+            soundService = null
+        }
         super.onDestroy()
     }
 
-    private fun parseMode(modeArg: String?): Mode {
-        return when (modeArg?.trim()?.lowercase()) {
-            "sleep" -> Mode.SLEEP
-            "focus" -> Mode.FOCUS
-            else -> Mode.GENERAL
+    private fun startMonitoring(
+        backbone: String,
+        modelPath: String?,
+        classLabelsPath: String?,
+        preprocessingConfigPath: String?,
+        thresholdDefaultsPath: String?,
+        prototypeStorePath: String?,
+        mode: String
+    ): StartMonitoringError? {
+        if (modelPath == null || classLabelsPath == null || preprocessingConfigPath == null ||
+            thresholdDefaultsPath == null || prototypeStorePath == null) {
+            return StartMonitoringError("invalid_arguments", "Missing file paths for engine initialization.")
         }
+
+        if (!hasRecordAudioPermission()) {
+            return StartMonitoringError(
+                "record_audio_permission_denied",
+                "RECORD_AUDIO permission is required to start monitoring.",
+            )
+        }
+
+        val intent = Intent(this, SoundMonitoringService::class.java).apply {
+            action = "START_MONITORING"
+            putExtra("backbone", backbone)
+            putExtra("mode", mode)
+            putExtra("modelPath", modelPath)
+            putExtra("classLabelsPath", classLabelsPath)
+            putExtra("preprocessingConfigPath", preprocessingConfigPath)
+            putExtra("thresholdDefaultsPath", thresholdDefaultsPath)
+            putExtra("prototypeStorePath", prototypeStorePath)
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(intent)
+        } else {
+            startService(intent)
+        }
+
+        bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE)
+        return null
     }
 
     private fun initializeRuntime(
@@ -239,174 +344,44 @@ class MainActivity : FlutterActivity() {
         classLabelsPath: String?,
         preprocessingConfigPath: String?,
         thresholdDefaultsPath: String?,
-        prototypeStorePath: String?,
+        prototypeStorePath: String?
     ): StartMonitoringError? {
         if (modelPath == null || classLabelsPath == null || preprocessingConfigPath == null ||
             thresholdDefaultsPath == null || prototypeStorePath == null) {
             return StartMonitoringError("invalid_arguments", "Missing file paths for engine initialization.")
         }
 
-        return try {
-            val classFile = java.io.File(classLabelsPath)
-            val preprocessingFile = java.io.File(preprocessingConfigPath)
-            val thresholdFile = java.io.File(thresholdDefaultsPath)
-            val prototypeFile = java.io.File(prototypeStorePath)
-            val modelFile = java.io.File(modelPath)
-
-            if (!classFile.exists() || !preprocessingFile.exists() || !thresholdFile.exists() || !prototypeFile.exists()) {
-                StartMonitoringError("missing_files", "One or more configuration files do not exist.")
-            } else if (!modelFile.exists()) {
-                StartMonitoringError("missing_model", "TFLite model file does not exist.")
-            } else {
-                val artifacts = RuntimeArtifactLoader.fromFiles(
-                    classFile,
-                    preprocessingFile,
-                    thresholdFile,
-                    prototypeFile
-                )
-                val interpreter = LiteRtModelLoader.loadInterpreter(modelFile)
-                val activeBackbone = if (backbone.lowercase() == "yamnet") {
-                    RuntimeBackbone.YAMNET
-                } else {
-                    RuntimeBackbone.TINY_CNN
-                }
-                val extractor = if (activeBackbone == RuntimeBackbone.YAMNET) {
-                    LiteRtEmbeddingExtractor(interpreter, artifacts.preprocessing.yamnetEmbeddingDim)
-                } else {
-                    TinyCnnEmbeddingExtractor(
-                        interpreter,
-                        artifacts.preprocessing,
-                        artifacts.preprocessing.tinyCnnEmbeddingDim
-                    )
-                }
-                runtimeEngine = LiteRtRuntimeFactory.createFromArtifacts(artifacts, extractor)
-                null
-            }
-        } catch (e: Exception) {
-            StartMonitoringError("engine_init_failed", "Failed to initialize ML engine: ${e.message}")
+        val intent = Intent(this, SoundMonitoringService::class.java).apply {
+            action = "INITIALIZE_RUNTIME"
+            putExtra("backbone", backbone)
+            putExtra("modelPath", modelPath)
+            putExtra("classLabelsPath", classLabelsPath)
+            putExtra("preprocessingConfigPath", preprocessingConfigPath)
+            putExtra("thresholdDefaultsPath", thresholdDefaultsPath)
+            putExtra("prototypeStorePath", prototypeStorePath)
         }
-    }
 
-    private fun startMonitoring(): StartMonitoringError? {
-        synchronized(monitoringLock) {
-            stopMonitoringLocked()
-            if (!hasRecordAudioPermission()) {
-                return StartMonitoringError(
-                    "record_audio_permission_denied",
-                    "RECORD_AUDIO permission is required to start monitoring.",
-                )
-            }
-            val minBufferSize = AudioRecord.getMinBufferSize(sampleRateHz, channelConfig, audioFormat)
-            if (minBufferSize <= 0) {
-                return StartMonitoringError(
-                    "audio_record_init_failed",
-                    "Unable to initialize microphone capture.",
-                )
-            }
-            val bufferSizeInBytes = maxOf(minBufferSize, captureChunkSamples * 2)
-            val recorder =
-                AudioRecord(
-                    MediaRecorder.AudioSource.MIC,
-                    sampleRateHz,
-                    channelConfig,
-                    audioFormat,
-                    bufferSizeInBytes,
-                )
-            if (recorder.state != AudioRecord.STATE_INITIALIZED) {
-                recorder.release()
-                return StartMonitoringError(
-                    "audio_record_init_failed",
-                    "Microphone is not available for live monitoring.",
-                )
-            }
-            try {
-                recorder.startRecording()
-            } catch (_: IllegalStateException) {
-                recorder.release()
-                return StartMonitoringError(
-                    "audio_record_start_failed",
-                    "Failed to start microphone capture.",
-                )
-            }
-
-            runtimeEngine?.start(mode)
-            captureRunning = true
-            audioRecord = recorder
-            val worker =
-                Thread(
-                    { captureLoop(recorder) },
-                    "soundpulse-runtime-feed",
-                ).apply { isDaemon = true }
-            captureThread = worker
-            worker.start()
-            return null
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(intent)
+        } else {
+            startService(intent)
         }
+
+        bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE)
+        return null
     }
 
     private fun stopMonitoring() {
-        synchronized(monitoringLock) {
-            stopMonitoringLocked()
+        if (isServiceBound) {
+            soundService?.unregisterListener()
+            unbindService(serviceConnection)
+            isServiceBound = false
+            soundService = null
         }
-    }
-
-    private fun stopMonitoringLocked() {
-        captureRunning = false
-        val recorder = audioRecord
-        audioRecord = null
-        val worker = captureThread
-        captureThread = null
-
-        if (recorder != null) {
-            if (recorder.recordingState == AudioRecord.RECORDSTATE_RECORDING) {
-                try {
-                    recorder.stop()
-                } catch (_: IllegalStateException) {
-                }
-            }
-            recorder.release()
+        val intent = Intent(this, SoundMonitoringService::class.java).apply {
+            action = "STOP_MONITORING"
         }
-        worker?.interrupt()
-        runtimeEngine?.stop()
-    }
-
-    private fun captureLoop(recorder: AudioRecord) {
-        val readBuffer = ShortArray(captureChunkSamples)
-        while (captureRunning) {
-            val samplesRead = recorder.read(readBuffer, 0, readBuffer.size, AudioRecord.READ_BLOCKING)
-            if (samplesRead <= 0) {
-                if (!captureRunning) {
-                    break
-                }
-                if (samplesRead == AudioRecord.ERROR_DEAD_OBJECT) {
-                    dispatchMonitoringError("audio_record_error", "Microphone capture was interrupted.")
-                    break
-                }
-                if (samplesRead == AudioRecord.ERROR_BAD_VALUE || samplesRead == AudioRecord.ERROR_INVALID_OPERATION) {
-                    dispatchMonitoringError(
-                        "audio_record_error",
-                        "Microphone capture failed with code $samplesRead.",
-                    )
-                    break
-                }
-                continue
-            }
-            val frameSamples =
-                FloatArray(samplesRead) { index ->
-                    (readBuffer[index] / 32768.0f).coerceIn(-1.0f, 1.0f)
-                }
-            try {
-                val results = runtimeEngine?.pushAudioPcm(frameSamples).orEmpty()
-                dispatchResults(results, frameSamples)
-            } catch (e: Exception) {
-                dispatchMonitoringError("inference_error", e.message ?: "Inference execution failed.")
-                break
-            }
-        }
-        synchronized(monitoringLock) {
-            if (audioRecord === recorder) {
-                stopMonitoringLocked()
-            }
-        }
+        startService(intent)
     }
 
     private fun hasRecordAudioPermission(): Boolean {

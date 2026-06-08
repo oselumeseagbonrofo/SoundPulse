@@ -42,14 +42,19 @@ BoxDecoration monitorPressed({double radius = 16}) {
 }
 
 String monitorTimeAgo(DateTime timestamp) {
-  final Duration diff = DateTime.now().difference(timestamp);
+  final DateTime localTime = timestamp.toLocal();
+  final Duration diff = DateTime.now().difference(localTime);
   if (diff.inMinutes < 1) {
     return "just now";
   }
   if (diff.inHours < 1) {
     return "${diff.inMinutes}m ago";
   }
-  return "${diff.inHours}h ago";
+  final int hour = localTime.hour;
+  final String minute = localTime.minute.toString().padLeft(2, '0');
+  final String period = hour >= 12 ? "PM" : "AM";
+  final int displayHour = hour % 12 == 0 ? 12 : hour % 12;
+  return "$displayHour:$minute $period";
 }
 
 String monitorLabelForMode(String mode) {

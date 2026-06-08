@@ -4,4 +4,15 @@
     "chat.tools.terminal.autoApprove": {
         "&": true
     },
+    "files.watcherExclude": {
+        "**/data/**": true,
+        "**/export/**": true,
+        "**/.venv/**": true
+    },
+    "search.exclude": {
+        "**/data/**": true,
+        "**/export/**": true,
+        "**/.venv/**": true
+    },
+    "explorer.autoReveal": false
 }

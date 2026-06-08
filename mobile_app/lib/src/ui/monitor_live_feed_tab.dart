@@ -1,15 +1,12 @@
-import "dart:async";
-import "dart:io";
 import "dart:math" as math;
 
-import "package:audioplayers/audioplayers.dart";
 import "package:flutter/foundation.dart";
 import "package:flutter/material.dart";
 
 import "../models/monitor_history_entry.dart";
 import "monitor_style.dart";
 
-class MonitorLiveFeedTab extends StatefulWidget {
+class MonitorLiveFeedTab extends StatelessWidget {
   const MonitorLiveFeedTab({
     super.key,
     required this.mode,
@@ -21,8 +18,6 @@ class MonitorLiveFeedTab extends StatefulWidget {
     required this.onBackboneChanged,
     required this.onContextAwareChanged,
     required this.onViewAll,
-    required this.submittedFeedback,
-    required this.onSubmitFeedback,
   });
 
   final String mode;
@@ -34,47 +29,6 @@ class MonitorLiveFeedTab extends StatefulWidget {
   final Future<void> Function(String backbone) onBackboneChanged;
   final Future<void> Function(bool enabled) onContextAwareChanged;
   final VoidCallback onViewAll;
-  final Map<String, String> submittedFeedback;
-  final void Function(String eventId, String label, String feedbackValue) onSubmitFeedback;
-
-  @override
-  State<MonitorLiveFeedTab> createState() => _MonitorLiveFeedTabState();
-}
-
-class _MonitorLiveFeedTabState extends State<MonitorLiveFeedTab> {
-  final AudioPlayer _audioPlayer = AudioPlayer();
-  StreamSubscription<void>? _playerCompleteSub;
-  String? _playingEntryId;
-  String? _statusMessage;
-
-  @override
-  void initState() {
-    super.initState();
-    _playerCompleteSub = _audioPlayer.onPlayerComplete.listen((_) {
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        _playingEntryId = null;
-      });
-    });
-  }
-
-  @override
-  void didUpdateWidget(covariant MonitorLiveFeedTab oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    final String? playingEntryId = _playingEntryId;
-    if (playingEntryId == null) {
-      return;
-    }
-    final bool stillExists = widget.history.any(
-      (MonitorHistoryEntry entry) => entry.id == playingEntryId,
-    );
-    if (!stillExists) {
-      unawaited(_audioPlayer.stop());
-      _playingEntryId = null;
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -145,12 +99,12 @@ class _MonitorLiveFeedTabState extends State<MonitorLiveFeedTab> {
                       ),
                     ),
                     Switch.adaptive(
-                      value: widget.contextAware,
+                      value: contextAware,
                       activeThumbColor: monitorPrimary,
                       activeTrackColor:
                           monitorPrimarySoft.withValues(alpha: 0.35),
                       onChanged: (bool enabled) async {
-                        await widget.onContextAwareChanged(enabled);
+                        await onContextAwareChanged(enabled);
                       },
                     ),
                   ],
@@ -158,17 +112,6 @@ class _MonitorLiveFeedTabState extends State<MonitorLiveFeedTab> {
               ],
             ),
           ),
-          if (_statusMessage != null) ...<Widget>[
-            const SizedBox(height: 8),
-            Text(
-              _statusMessage!,
-              style: const TextStyle(
-                color: monitorOnSurfaceVariant,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
           const SizedBox(height: 14),
           Row(
             children: <Widget>[
@@ -181,39 +124,39 @@ class _MonitorLiveFeedTabState extends State<MonitorLiveFeedTab> {
               ),
               const Spacer(),
               TextButton(
-                onPressed: widget.onViewAll,
+                onPressed: onViewAll,
                 child: const Text("View All",
                     style: TextStyle(color: monitorPrimary, fontSize: 12)),
               ),
             ],
           ),
-          if (widget.history.isEmpty)
+          if (history.isEmpty)
             Container(
               width: double.infinity,
               margin: const EdgeInsets.only(top: 8),
               padding: const EdgeInsets.all(20),
               decoration: monitorRaised(radius: 20),
               child: Text(
-                widget.monitoring
+                monitoring
                     ? "Listening for sounds..."
                     : "Start monitoring to detect sounds",
                 style: const TextStyle(color: monitorOnSurfaceVariant),
               ),
             )
           else
-            ...widget.history.take(6).map(_buildHistoryCard),
+            ...history.take(6).map(_buildHistoryCard),
         ],
       ),
     );
   }
 
   Widget _modeChip(String candidateMode) {
-    final bool selected = widget.mode == candidateMode;
+    final bool selected = mode == candidateMode;
     return Expanded(
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
         onTap: () async {
-          await widget.onModeChanged(candidateMode);
+          await onModeChanged(candidateMode);
         },
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 11),
@@ -234,12 +177,12 @@ class _MonitorLiveFeedTabState extends State<MonitorLiveFeedTab> {
   }
 
   Widget _backboneChip(String candidateBackbone, String label) {
-    final bool selected = widget.backbone == candidateBackbone;
+    final bool selected = backbone == candidateBackbone;
     return Expanded(
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
         onTap: () async {
-          await widget.onBackboneChanged(candidateBackbone);
+          await onBackboneChanged(candidateBackbone);
         },
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 11),
@@ -261,9 +204,6 @@ class _MonitorLiveFeedTabState extends State<MonitorLiveFeedTab> {
 
   Widget _buildHistoryCard(MonitorHistoryEntry entry) {
     final String confidence = "${(entry.event.confidence * 100).round()}%";
-    final bool playing = _playingEntryId == entry.id;
-    final String label = entry.event.label;
-    final String? currentFeedback = widget.submittedFeedback[entry.id];
 
     return Container(
       margin: const EdgeInsets.only(top: 12),
@@ -325,120 +265,9 @@ class _MonitorLiveFeedTabState extends State<MonitorLiveFeedTab> {
                     ),
             ),
           ),
-          const SizedBox(height: 10),
-          Row(
-            children: <Widget>[
-              IconButton(
-                tooltip: playing ? "Stop playback" : "Play detection",
-                onPressed: () async {
-                  await _togglePlayback(entry);
-                },
-                icon: Icon(
-                  playing
-                      ? Icons.stop_circle_outlined
-                      : Icons.play_circle_outline,
-                  color: monitorPrimary,
-                ),
-              ),
-              const Spacer(),
-              _feedbackButton(entry.id, label, "correct", Icons.check_circle_outline, Colors.green, currentFeedback == "correct"),
-              const SizedBox(width: 6),
-              _feedbackButton(entry.id, label, "wrong", Icons.cancel_outlined, Colors.red, currentFeedback == "wrong"),
-              const SizedBox(width: 6),
-              _feedbackButton(entry.id, label, "not_sure", Icons.help_outline, Colors.orange, currentFeedback == "not_sure"),
-            ],
-          ),
         ],
       ),
     );
-  }
-
-  Widget _feedbackButton(
-    String eventId,
-    String label,
-    String val,
-    IconData icon,
-    Color activeColor,
-    bool isSelected,
-  ) {
-    return InkWell(
-      onTap: () => widget.onSubmitFeedback(eventId, label, val),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: isSelected
-            ? monitorPressed(radius: 8).copyWith(color: activeColor.withValues(alpha: 0.15))
-            : monitorRaised(radius: 8),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            Icon(
-              icon,
-              size: 12,
-              color: isSelected ? activeColor : monitorOnSurfaceVariant,
-            ),
-            const SizedBox(width: 4),
-            Text(
-              val == "not_sure" ? "Not Sure" : val[0].toUpperCase() + val.substring(1),
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
-                color: isSelected ? activeColor : monitorOnSurfaceVariant,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Future<void> _togglePlayback(MonitorHistoryEntry entry) async {
-    if (_playingEntryId == entry.id) {
-      await _audioPlayer.stop();
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        _playingEntryId = null;
-      });
-      return;
-    }
-
-    if (entry.audioFilePath.isEmpty) {
-      _setStatus("No audio clip is attached to this detection.");
-      return;
-    }
-
-    final File file = File(entry.audioFilePath);
-    if (!await file.exists()) {
-      _setStatus("The saved audio clip for this detection is missing.");
-      return;
-    }
-
-    await _audioPlayer.stop();
-    await _audioPlayer.play(DeviceFileSource(entry.audioFilePath));
-    if (!mounted) {
-      return;
-    }
-    setState(() {
-      _playingEntryId = entry.id;
-      _statusMessage = null;
-    });
-  }
-
-  void _setStatus(String message) {
-    if (!mounted) {
-      return;
-    }
-    setState(() {
-      _statusMessage = message;
-    });
-  }
-
-  @override
-  void dispose() {
-    _playerCompleteSub?.cancel();
-    unawaited(_audioPlayer.dispose());
-    super.dispose();
   }
 }
 

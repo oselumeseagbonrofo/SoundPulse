@@ -1,6 +1,7 @@
 import "dart:async";
 import "package:flutter/material.dart";
 import "../storage/local_storage_service.dart";
+import "../runtime/runtime_bridge.dart";
 import "monitor_style.dart";
 
 class MonitorSettingsTab extends StatefulWidget {
@@ -25,6 +26,7 @@ class MonitorSettingsTab extends StatefulWidget {
 
 class _MonitorSettingsTabState extends State<MonitorSettingsTab> {
   final LocalStorageService _storageService = LocalStorageService();
+  final RuntimeBridge _runtimeBridge = RuntimeBridge();
   List<Map<String, dynamic>> _configs = <Map<String, dynamic>>[];
   bool _loading = true;
 

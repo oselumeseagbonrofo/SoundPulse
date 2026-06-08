@@ -1,7 +1,9 @@
+import "dart:convert";
 import "dart:io";
 import "dart:typed_data";
 import "package:hive/hive.dart";
 import "package:encrypt/encrypt.dart" as enc;
+import "package:path_provider/path_provider.dart";
 import "../models/custom_sound_sample.dart";
 
 /// Persists preferences, custom sound configs, thresholds, context policies,
@@ -120,8 +122,9 @@ class LocalStorageService {
   // ----------------------------------------------------
   // Box 1: Settings (soundpulse.settings)
   // ----------------------------------------------------
-  Future<void> saveMode(String mode) {
-    return Future.sync(() => _settingsBox()?.put(_modeKey, mode));
+  Future<void> saveMode(String mode) async {
+    await _settingsBox()?.put(_modeKey, mode);
+    await syncSettingsToBackground();
   }
 
   Future<String> readMode() async {
@@ -129,8 +132,9 @@ class LocalStorageService {
     return box?.get(_modeKey, defaultValue: "general") as String? ?? "general";
   }
 
-  Future<void> saveContextAware(bool enabled) {
-    return Future.sync(() => _settingsBox()?.put(_contextAwareKey, enabled));
+  Future<void> saveContextAware(bool enabled) async {
+    await _settingsBox()?.put(_contextAwareKey, enabled);
+    await syncSettingsToBackground();
   }
 
   Future<bool> readContextAware() async {
@@ -177,8 +181,9 @@ class LocalStorageService {
   // ----------------------------------------------------
   // Box 2: Class Config (soundpulse.class_config)
   // ----------------------------------------------------
-  Future<void> saveClassConfig(String classSlug, Map<String, dynamic> config) {
-    return Future.sync(() => _classConfigBox()?.put(classSlug, config));
+  Future<void> saveClassConfig(String classSlug, Map<String, dynamic> config) async {
+    await _classConfigBox()?.put(classSlug, config);
+    await syncSettingsToBackground();
   }
 
   Future<Map<String, dynamic>?> readClassConfig(String classSlug) async {
@@ -342,5 +347,62 @@ class LocalStorageService {
     for (final sound in sounds) {
       await box.put(sound.id, sound.toMap());
     }
+  }
+
+  /// Exports current settings and configs to a shared JSON file for the background service
+  Future<void> syncSettingsToBackground() async {
+    final mode = await readMode();
+    final contextAware = await readContextAware();
+    final configs = await readAllClassConfigs();
+
+    final Map<String, dynamic> data = <String, dynamic>{
+      "active_mode": mode,
+      "context_aware": contextAware,
+      "configs": <String, dynamic>{
+        for (final Map<String, dynamic> item in configs)
+          if (item["slug"] != null) item["slug"].toString(): item
+      }
+    };
+
+    final Directory directory = await getApplicationDocumentsDirectory();
+    final File syncFile = File("${directory.path}/app_settings_sync.json");
+    await syncFile.writeAsString(jsonEncode(data), flush: true);
+  }
+
+  /// Reads and clears background events logged by the service
+  Future<List<Map<String, dynamic>>> readAndClearBackgroundEvents() async {
+    final Directory directory = await getApplicationDocumentsDirectory();
+    final File syncFile = File("${directory.path}/background_events_sync.json");
+    if (!await syncFile.exists()) {
+      return const <Map<String, dynamic>>[];
+    }
+
+    // Attempt to read and parse the file. If it fails (e.g. due to a
+    // race with the native service still writing), retry once after a
+    // brief delay before giving up.
+    for (int attempt = 0; attempt < 2; attempt++) {
+      try {
+        final String content = await syncFile.readAsString();
+        final dynamic decoded = jsonDecode(content);
+        if (decoded is List) {
+          await syncFile.delete();
+          return decoded
+              .map((dynamic e) => Map<String, dynamic>.from(e as Map))
+              .toList();
+        }
+        break; // Valid JSON but not a list – no retry needed
+      } catch (e) {
+        if (attempt == 0) {
+          // First failure: wait briefly and retry in case of a write race
+          await Future<void>.delayed(const Duration(milliseconds: 300));
+          continue;
+        }
+        // Second failure: delete the corrupt file to prevent infinite loops
+        if (await syncFile.exists()) {
+          await syncFile.delete();
+        }
+      }
+    }
+    return const <Map<String, dynamic>>[];
   }
 }

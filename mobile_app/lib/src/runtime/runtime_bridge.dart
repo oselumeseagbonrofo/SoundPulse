@@ -91,6 +91,10 @@ class RuntimeBridge {
     return _methods.invokeMethod<void>("stopMonitoring");
   }
 
+  Future<bool> isMonitoringActive() async {
+    return await _methods.invokeMethod<bool>("isMonitoringActive") ?? false;
+  }
+
   Future<void> updateMode(String mode) {
     return _methods
         .invokeMethod<void>("updateMode", <String, dynamic>{"mode": mode});
@@ -159,5 +163,13 @@ class RuntimeBridge {
 
   Future<void> requestNotificationPermission() {
     return _methods.invokeMethod<void>("requestNotificationPermission");
+  }
+
+  Future<bool> isBatteryOptimizationIgnored() async {
+    return await _methods.invokeMethod<bool>("isBatteryOptimizationIgnored") ?? true;
+  }
+
+  Future<void> requestIgnoreBatteryOptimizations() {
+    return _methods.invokeMethod<void>("requestIgnoreBatteryOptimizations");
   }
 }

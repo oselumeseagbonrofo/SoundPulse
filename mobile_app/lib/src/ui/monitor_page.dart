@@ -26,16 +26,16 @@ class MonitorPage extends StatefulWidget {
   State<MonitorPage> createState() => _MonitorPageState();
 }
 
-class _MonitorPageState extends State<MonitorPage> {
+class _MonitorPageState extends State<MonitorPage> with WidgetsBindingObserver {
   final RuntimeBridge _runtimeBridge = RuntimeBridge();
   final LocalStorageService _storageService = LocalStorageService();
   final ContextManager _contextManager = ContextManager();
   final List<MonitorHistoryEntry> _history = <MonitorHistoryEntry>[];
   final List<CustomSoundSample> _recordedSounds = <CustomSoundSample>[];
-  final Map<String, String> _submittedFeedback = <String, String>{};
   final AudioRecorder _audioRecorder = AudioRecorder();
 
   StreamSubscription<InferenceEvent>? _eventsSub;
+  Timer? _historyCleanupTimer;
   int _detectionCounter = 0;
 
   bool _monitoring = false;
@@ -64,14 +64,18 @@ class _MonitorPageState extends State<MonitorPage> {
   final List<String> _predictionWindow = <String>[];
   String? _activeNotifiedSound;
 
-  static const int _windowSize = 1;
-  static const double _onsetThreshold = 0.0;
-  static const double _offsetThreshold = 0.0;
+  static const int _windowSize = 5;
+  static const double _onsetThreshold = 0.60;
+  static const double _offsetThreshold = 0.20;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadPreferences();
+    _historyCleanupTimer = Timer.periodic(const Duration(minutes: 5), (_) {
+      _cleanupAndSortHistory();
+    });
   }
 
   Future<void> _loadPreferences() async {
@@ -83,8 +87,8 @@ class _MonitorPageState extends State<MonitorPage> {
     bool storedVibration = false;
     bool storedCameraFlash = false;
     List<Map<String, dynamic>> storedHistory = const <Map<String, dynamic>>[];
-    Map<String, Map<String, dynamic>> storedFeedback = const <String, Map<String, dynamic>>{};
     List<Map<String, dynamic>> storedCustomClasses = const <Map<String, dynamic>>[];
+    bool storedMonitoring = false;
 
     try {
       storedMode = await _storageService.readMode();
@@ -95,8 +99,8 @@ class _MonitorPageState extends State<MonitorPage> {
       storedVibration = await _storageService.readVibrationEnabled();
       storedCameraFlash = await _storageService.readCameraFlashEnabled();
       storedHistory = await _storageService.readEventHistory();
-      storedFeedback = await _storageService.readAllFeedback();
       storedCustomClasses = await _storageService.readAllClassConfigs();
+      storedMonitoring = await _runtimeBridge.isMonitoringActive();
     } catch (_) {
       storedMode = "general";
       storedBackbone = "yamnet";
@@ -106,8 +110,8 @@ class _MonitorPageState extends State<MonitorPage> {
       storedVibration = false;
       storedCameraFlash = false;
       storedHistory = const <Map<String, dynamic>>[];
-      storedFeedback = const <String, Map<String, dynamic>>{};
       storedCustomClasses = const <Map<String, dynamic>>[];
+      storedMonitoring = false;
     }
 
     if (!mounted) {
@@ -116,8 +120,15 @@ class _MonitorPageState extends State<MonitorPage> {
 
     // Request notification permission on Android 13+ to ensure system alerts work
     unawaited(_runtimeBridge.requestNotificationPermission());
+    
+    final bool batteryIgnored = await _runtimeBridge.isBatteryOptimizationIgnored();
+    if (!batteryIgnored){
+      unawaited(_runtimeBridge.requestIgnoreBatteryOptimizations());
+    }
+    
 
     setState(() {
+      _monitoring = storedMonitoring;
       _mode = storedMode;
       _backbone = storedBackbone;
       _personalisationLevel = storedPersonalisationLevel;
@@ -139,18 +150,10 @@ class _MonitorPageState extends State<MonitorPage> {
         }
       }
 
-      _submittedFeedback
-        ..clear()
-        ..addAll(storedFeedback.map((key, val) => MapEntry(key, val["user_feedback"] as String? ?? "correct")));
-
       int legacyCounter = 0;
-      bool hasNullEventId = false;
       final List<MonitorHistoryEntry> loadedHistory = [];
 
       for (final map in storedHistory) {
-        if (map["event_id"] == null) {
-          hasNullEventId = true;
-        }
         final eventMap = map["event"] as Map<dynamic, dynamic>? ?? {};
         final event = InferenceEvent(
           label: (map["predicted_label"] as String?) ?? (eventMap["label"] as String?) ?? "unknown",
@@ -175,28 +178,16 @@ class _MonitorPageState extends State<MonitorPage> {
       _history
         ..clear()
         ..addAll(loadedHistory);
-
-      if (hasNullEventId) {
-        final List<Map<String, dynamic>> historyPayload = _history.map((entry) {
-          return <String, dynamic>{
-            "event_id": entry.id,
-            "timestamp": entry.capturedAt.toIso8601String(),
-            "predicted_label": entry.event.label,
-            "confidence_tier": entry.event.confidenceTier,
-            "confidence": entry.event.confidence,
-            "is_unknown": entry.event.isUnknown,
-            "is_background": entry.event.isBackground,
-            "active_mode": _mode,
-            "was_user_alerted": true,
-            "waveform_samples": entry.waveformSamples,
-            "audio_file_path": entry.audioFilePath,
-          };
-        }).toList();
-        unawaited(_storageService.clearEventHistory().then((_) {
-          _storageService.saveEventHistory(historyPayload);
-        }));
-      }
     });
+
+    if (storedMonitoring) {
+      _eventsSub = _runtimeBridge.streamEvents().listen((InferenceEvent event) {
+        unawaited(_onEvent(event));
+      });
+    }
+
+    await _cleanupAndSortHistory();
+    await _syncBackgroundEvents();
   }
 
   Future<void> _toggleMonitoring() async {
@@ -377,7 +368,6 @@ class _MonitorPageState extends State<MonitorPage> {
             waveformSamples: event.waveformSamples,
           );
 
-          MonitorHistoryEntry? removedEntry;
           setState(() {
             _history.insert(
               0,
@@ -389,36 +379,9 @@ class _MonitorPageState extends State<MonitorPage> {
                 audioFilePath: audioFilePath,
               ),
             );
-            if (_history.length > 20) {
-              removedEntry = _history.removeLast();
-            }
           });
 
-          final List<Map<String, dynamic>> historyPayload = _history.map((entry) {
-            return <String, dynamic>{
-              "event_id": entry.id,
-              "timestamp": entry.capturedAt.toIso8601String(),
-              "predicted_label": entry.event.label,
-              "confidence_tier": entry.event.confidenceTier,
-              "confidence": entry.event.confidence,
-              "is_unknown": entry.event.isUnknown,
-              "is_background": entry.event.isBackground,
-              "active_mode": _mode,
-              "was_user_alerted": !decision.suppressed,
-              "suppression_reason": decision.suppressionReason,
-              "alert_decision": decision.toMap(),
-              "waveform_samples": entry.waveformSamples,
-              "audio_file_path": entry.audioFilePath,
-            };
-          }).toList();
-          unawaited(_storageService.clearEventHistory().then((_) {
-            _storageService.saveEventHistory(historyPayload);
-          }));
-
-          final String pathToDelete = removedEntry?.audioFilePath ?? "";
-          if (pathToDelete.isNotEmpty) {
-            unawaited(_deleteDetectionFile(pathToDelete));
-          }
+          await _cleanupAndSortHistory();
         }
       }
     } else {
@@ -811,17 +774,124 @@ class _MonitorPageState extends State<MonitorPage> {
     await _ensureRuntimeReady();
     await _runtimeBridge.updatePrototype(label: classSlug, embedding: centroid);
   }
+  Future<void> _cleanupAndSortHistory() async {
+    final DateTime cutoff = DateTime.now().subtract(const Duration(hours: 24));
+    
+    // Sort by recency of occurrence: most recent first, oldest last
+    _history.sort((a, b) => b.capturedAt.compareTo(a.capturedAt));
+    
+    final List<MonitorHistoryEntry> kept = [];
+    final List<MonitorHistoryEntry> removed = [];
+    
+    for (final entry in _history) {
+      if (entry.capturedAt.isAfter(cutoff)) {
+        kept.add(entry);
+      } else {
+        removed.add(entry);
+      }
+    }
+    
+    if (removed.isNotEmpty) {
+      for (final entry in removed) {
+        if (entry.audioFilePath.isNotEmpty) {
+          await _deleteDetectionFile(entry.audioFilePath);
+        }
+      }
+    }
+    
+    if (mounted) {
+      setState(() {
+        _history.clear();
+        _history.addAll(kept);
+      });
+    } else {
+      _history.clear();
+      _history.addAll(kept);
+    }
+    
+    final List<Map<String, dynamic>> historyPayload = _history.map((entry) {
+      return <String, dynamic>{
+        "event_id": entry.id,
+        "timestamp": entry.capturedAt.toIso8601String(),
+        "predicted_label": entry.event.label,
+        "confidence_tier": entry.event.confidenceTier,
+        "confidence": entry.event.confidence,
+        "is_unknown": entry.event.isUnknown,
+        "is_background": entry.event.isBackground,
+        "active_mode": _mode,
+        "was_user_alerted": true,
+        "waveform_samples": entry.waveformSamples,
+        "audio_file_path": entry.audioFilePath,
+      };
+    }).toList();
+    
+    await _storageService.clearEventHistory();
+    await _storageService.saveEventHistory(historyPayload);
+  }
 
-  Future<void> _submitFeedback(String eventId, String label, String feedbackValue) async {
-    final Map<String, dynamic> feedbackMap = {
-      "event_label": label,
-      "user_feedback": feedbackValue,
-      "timestamp": DateTime.now().toIso8601String(),
-    };
-    await _storageService.saveFeedback(eventId, feedbackMap);
-    setState(() {
-      _submittedFeedback[eventId] = feedbackValue;
-    });
+  Future<void> _syncBackgroundEvents() async {
+    final List<Map<String, dynamic>> bgEvents =
+        await _storageService.readAndClearBackgroundEvents();
+    if (bgEvents.isEmpty) {
+      return;
+    }
+
+    final List<MonitorHistoryEntry> newEntries = <MonitorHistoryEntry>[];
+    int legacyCounter = 0;
+    for (final Map<String, dynamic> map in bgEvents) {
+      final String fallbackId =
+          "${DateTime.now().microsecondsSinceEpoch}_${legacyCounter++}";
+      final String label = map["predicted_label"] as String? ?? "unknown";
+      final String tier = map["confidence_tier"] as String? ?? "low";
+      final double confidence = ((map["confidence"] as num?) ?? 0.0).toDouble();
+      final bool isUnknown = map["is_unknown"] as bool? ?? false;
+      final bool isBackground = map["is_background"] as bool? ?? false;
+      List<double> samples = (map["waveform_samples"] as List<dynamic>? ?? const <dynamic>[])
+          .map((dynamic e) => (e as num).toDouble())
+          .toList(growable: false);
+
+      // Recover waveform samples from the persisted WAV file if not in JSON
+      final String audioPath = map["audio_file_path"] as String? ?? "";
+      if (samples.isEmpty && audioPath.isNotEmpty) {
+        try {
+          final File wavFile = File(audioPath);
+          if (await wavFile.exists()) {
+            samples = await _readPcm16WavSamples(audioPath);
+          }
+        } catch (_) {
+          // Use empty samples if WAV recovery fails
+        }
+      }
+
+      final InferenceEvent event = InferenceEvent(
+        label: label,
+        confidenceTier: tier,
+        confidence: confidence,
+        isUnknown: isUnknown,
+        isBackground: isBackground,
+        waveformSamples: samples,
+      );
+
+      newEntries.add(MonitorHistoryEntry(
+        id: map["event_id"] as String? ?? fallbackId,
+        event: event,
+        capturedAt: DateTime.tryParse(map["timestamp"] as String? ?? "") ?? DateTime.now(),
+        waveformSamples: samples,
+        audioFilePath: audioPath,
+      ));
+    }
+
+    if (newEntries.isEmpty) return;
+
+    if (mounted) {
+      setState(() {
+        _history.addAll(newEntries);
+      });
+    } else {
+      _history.addAll(newEntries);
+    }
+
+    await _cleanupAndSortHistory();
   }
 
   Future<List<double>> _readPcm16WavSamples(String filePath) async {
@@ -926,6 +996,8 @@ class _MonitorPageState extends State<MonitorPage> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _historyCleanupTimer?.cancel();
     _contextManager.reset();
     for (final MonitorHistoryEntry entry in _history) {
       if (entry.audioFilePath.isNotEmpty) {
@@ -938,6 +1010,19 @@ class _MonitorPageState extends State<MonitorPage> {
     }
     _eventsSub?.cancel();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // Brief delay to let the native service finish any in-progress file writes
+      // before reading the background events sync file.
+      Future<void>.delayed(const Duration(milliseconds: 500), () {
+        if (mounted) {
+          _syncBackgroundEvents();
+        }
+      });
+    }
   }
 
   Widget _buildTopBar() {
@@ -1055,13 +1140,9 @@ class _MonitorPageState extends State<MonitorPage> {
                   onBackboneChanged: _changeBackbone,
                   onContextAwareChanged: _setContextAware,
                   onViewAll: () => setState(() => _tabIndex = 1),
-                  submittedFeedback: _submittedFeedback,
-                  onSubmitFeedback: _submitFeedback,
                 ),
                 MonitorHistoryTab(
                   history: _history,
-                  submittedFeedback: _submittedFeedback,
-                  onSubmitFeedback: _submitFeedback,
                 ),
                 MonitorRecordTab(
                   key: const ValueKey("MonitorRecordTab"),
@@ -1095,6 +1176,9 @@ class _MonitorPageState extends State<MonitorPage> {
         selectedIndex: _tabIndex == 3 ? _previousTabIndex : _tabIndex,
         onDestinationSelected: (int index) {
           setState(() => _tabIndex = index);
+          if (index == 0 || index == 1) {
+            unawaited(_syncBackgroundEvents());
+          }
         },
         destinations: const <NavigationDestination>[
           NavigationDestination(
