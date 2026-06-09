@@ -1,4 +1,4 @@
-package com.example.soundpulse_mobile
+package com.oselumeseagbonrofo.soundpulse
 
 import android.content.BroadcastReceiver
 import android.content.Context

@@ -157,7 +157,7 @@ class LocalStorageService {
 
   Future<bool> readVibrationEnabled() async {
     final box = _settingsBox();
-    return box?.get(_vibrationKey, defaultValue: false) as bool? ?? false;
+    return box?.get(_vibrationKey, defaultValue: true) as bool? ?? true;
   }
 
   Future<void> saveCameraFlashEnabled(bool enabled) {
@@ -166,7 +166,7 @@ class LocalStorageService {
 
   Future<bool> readCameraFlashEnabled() async {
     final box = _settingsBox();
-    return box?.get(_cameraFlashKey, defaultValue: false) as bool? ?? false;
+    return box?.get(_cameraFlashKey, defaultValue: true) as bool? ?? true;
   }
 
   Future<void> savePersonalisationLevel(String level) {
@@ -351,6 +351,8 @@ class LocalStorageService {
 
   /// Exports current settings and configs to a shared JSON file for the background service
   Future<void> syncSettingsToBackground() async {
+    final box = _settingsBox();
+    if (box == null) return;
     final mode = await readMode();
     final contextAware = await readContextAware();
     final configs = await readAllClassConfigs();

@@ -21,7 +21,7 @@ const List<PersonalizableSoundOption> personalizableSoundOptions =
   PersonalizableSoundOption("crying_baby", "Crying baby"),
   PersonalizableSoundOption("water_running", "Water running"),
   PersonalizableSoundOption("dog_barking", "Dog barking"),
-  PersonalizableSoundOption("door_wood_creaking", "Door creaking"),
+  PersonalizableSoundOption("door_wood_creaking", "Door opening"),
   PersonalizableSoundOption("background", "Ambient background"),
 ];
 
@@ -31,11 +31,7 @@ class MonitorRecordTab extends StatefulWidget {
     required this.recordedSounds,
     required this.soundOptions,
     required this.personalisationLevel,
-    required this.vibrationEnabled,
-    required this.cameraFlashEnabled,
     required this.onPersonalisationLevelChanged,
-    required this.onVibrationToggle,
-    required this.onCameraFlashToggle,
     required this.onSaveSound,
     required this.onRenameSound,
     required this.onDeleteSound,
@@ -45,12 +41,7 @@ class MonitorRecordTab extends StatefulWidget {
 
   final List<CustomSoundSample> recordedSounds;
   final List<PersonalizableSoundOption> soundOptions;
-  final String personalisationLevel;
-  final bool vibrationEnabled;
-  final bool cameraFlashEnabled;
-  final ValueChanged<String> onPersonalisationLevelChanged;
-  final ValueChanged<bool> onVibrationToggle;
-  final ValueChanged<bool> onCameraFlashToggle;
+  final String personalisationLevel;  final ValueChanged<String> onPersonalisationLevelChanged;
   final Future<void> Function(
     String name,
     String classSlug,
@@ -86,7 +77,7 @@ class _MonitorRecordTabState extends State<MonitorRecordTab> {
   late String _selectedClassSlug;
   late String _selectedClassLabel;
   List<double> _levelBars = const <double>[];
-  bool _pendingPlaybackConfirmed = false;
+
   final AudioRecorder _audioRecorder = AudioRecorder();
   final AudioPlayer _audioPlayer = AudioPlayer();
   final TextEditingController _nameController = TextEditingController();
@@ -138,8 +129,8 @@ class _MonitorRecordTabState extends State<MonitorRecordTab> {
             widget.personalisationLevel == "default"
                 ? "Select a personalisation mode to record and train custom sounds."
                 : widget.personalisationLevel == "quick"
-                    ? "Capture 1-3 clear samples for a sound class. Play each sample before saving."
-                    : "Capture 3-5 clear samples for a sound class. Play each sample before saving.",
+                    ? "Capture 1-3 clear samples for a sound class."
+                    : "Capture 3-5 clear samples for a sound class.",
             style: const TextStyle(color: monitorOnSurfaceVariant, fontSize: 12),
           ),
           const SizedBox(height: 14),
@@ -160,7 +151,7 @@ class _MonitorRecordTabState extends State<MonitorRecordTab> {
                 _buildPersonalisationOption(
                   id: "default",
                   title: "Default Setup",
-                  subtitle: "Built-in offline model, no custom sounds",
+                  subtitle: "No custom sounds",
                   icon: Icons.settings_suggest,
                 ),
                 const SizedBox(height: 8),
@@ -388,11 +379,9 @@ class _MonitorRecordTabState extends State<MonitorRecordTab> {
                                        : "Play"),
                              ),
                             FilledButton(
-                              onPressed: _pendingPlaybackConfirmed
-                                  ? () async {
-                                      await _savePendingSample();
-                                    }
-                                  : null,
+                              onPressed: () async {
+                                await _savePendingSample();
+                              },
                               child: const Text("Save sample"),
                             ),
                           ],
@@ -400,65 +389,6 @@ class _MonitorRecordTabState extends State<MonitorRecordTab> {
                       ],
                     ],
                   ),
-          ),
-          const SizedBox(height: 14),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: monitorRaised(radius: 20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                const Text(
-                  "Alert Preferences",
-                  style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: monitorOnSurface),
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: <Widget>[
-                    const Expanded(
-                      child: Text(
-                        "Vibrate on detection",
-                        style: TextStyle(
-                            color: monitorOnSurface,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500),
-                      ),
-                    ),
-                    Switch.adaptive(
-                      value: widget.vibrationEnabled,
-                      activeThumbColor: monitorPrimary,
-                      activeTrackColor:
-                          monitorPrimarySoft.withValues(alpha: 0.35),
-                      onChanged: widget.onVibrationToggle,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: <Widget>[
-                    const Expanded(
-                      child: Text(
-                        "Flash camera on detection",
-                        style: TextStyle(
-                            color: monitorOnSurface,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500),
-                      ),
-                    ),
-                    Switch.adaptive(
-                      value: widget.cameraFlashEnabled,
-                      activeThumbColor: monitorPrimary,
-                      activeTrackColor:
-                          monitorPrimarySoft.withValues(alpha: 0.35),
-                      onChanged: widget.onCameraFlashToggle,
-                    ),
-                  ],
-                ),
-              ],
-            ),
           ),
           const SizedBox(height: 14),
           Container(
@@ -477,7 +407,7 @@ class _MonitorRecordTabState extends State<MonitorRecordTab> {
                 const SizedBox(height: 8),
                 if (widget.recordedSounds.isEmpty)
                   const Text(
-                    "No saved sounds yet. Record one to build your custom dataset.",
+                    "No saved sounds yet. Record one to add custom sounds.",
                     style: TextStyle(color: monitorOnSurfaceVariant),
                   )
                 else
@@ -677,7 +607,6 @@ class _MonitorRecordTabState extends State<MonitorRecordTab> {
       _progress = 0;
       _pendingRecordedAt = startedAt;
       _pendingRecordedFilePath = recordingPath;
-      _pendingPlaybackConfirmed = false;
       _levelBars = const <double>[];
       _statusMessage = null;
     });
@@ -767,7 +696,6 @@ class _MonitorRecordTabState extends State<MonitorRecordTab> {
       _nameController.clear();
       _pendingRecordedFilePath = null;
       _pendingRecordedAt = null;
-      _pendingPlaybackConfirmed = false;
       _playingSoundId = null;
       _playbackPaused = false;
       _statusMessage = "Discarded recording.";
@@ -811,26 +739,27 @@ class _MonitorRecordTabState extends State<MonitorRecordTab> {
     }
     _currentTempPlayFile = null;
 
-    await _audioPlayer.play(DeviceFileSource(filePath));
+    try {
+      await _audioPlayer.play(DeviceFileSource(filePath));
+    } catch (e) {
+      _setStatus("Playback failed: $e");
+      return;
+    }
     if (!mounted) {
       return;
     }
     setState(() {
       _playingSoundId = "pending";
       _playbackPaused = false;
-      _pendingPlaybackConfirmed = true;
       _statusMessage =
-          "Playback confirmed. Save this sample if it sounds clean.";
+          "Playing sample. Save when you are satisfied.";
     });
   }
 
   Future<void> _savePendingSample() async {
     final String name = _nameController.text.trim();
     if (name.isEmpty) {
-      return;
-    }
-    if (!_pendingPlaybackConfirmed) {
-      _setStatus("Play the sample once before saving it.");
+      _setStatus("Please enter a name for the sound sample.");
       return;
     }
     final String? filePath = _pendingRecordedFilePath;
@@ -860,7 +789,6 @@ class _MonitorRecordTabState extends State<MonitorRecordTab> {
       _nameController.clear();
       _pendingRecordedFilePath = null;
       _pendingRecordedAt = null;
-      _pendingPlaybackConfirmed = false;
       _playingSoundId = null;
       _playbackPaused = false;
       _statusMessage = "Saved \"$name\".";

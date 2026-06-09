@@ -153,12 +153,20 @@ class RuntimeBridge {
     });
   }
 
-  Future<void> vibrate() {
-    return _methods.invokeMethod<void>("vibrate");
+  Future<void> vibrate(String pattern) {
+    return _methods.invokeMethod<void>("vibrate", <String, dynamic>{"pattern": pattern});
   }
 
-  Future<void> triggerCameraFlash() {
-    return _methods.invokeMethod<void>("triggerCameraFlash");
+  Future<void> triggerCameraFlash(String pattern) {
+    return _methods.invokeMethod<void>("triggerCameraFlash", <String, dynamic>{"pattern": pattern});
+  }
+
+  Future<bool> hasCameraPermission() async {
+    return await _methods.invokeMethod<bool>("hasCameraPermission") ?? false;
+  }
+
+  Future<void> requestCameraPermission() {
+    return _methods.invokeMethod<void>("requestCameraPermission");
   }
 
   Future<void> requestNotificationPermission() {

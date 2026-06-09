@@ -235,55 +235,61 @@ class ContextManager {
     String suppressionReason = "";
     AlertModality decidedModality = modality;
 
+    // Check if the sound is allowed in the active mode
+    bool isAllowed = true;
+    final String allowKey = "allow_in_${activeMode}_mode";
+    
     final bool hasModeOverride = userOverrides != null &&
         userOverrides["modes"] is Map &&
         (userOverrides["modes"] as Map)[activeMode] != null;
 
-    if (!hasModeOverride) {
-      // Sleep Mode Rules
+    if (userOverrides != null && userOverrides.containsKey(allowKey)) {
+      isAllowed = userOverrides[allowKey] as bool? ?? true;
+    } else if (hasModeOverride) {
+      // If there is a mode-specific modality override, treat it as allowed unless set to "none" or "silent_log"
+      final String? overrideModality = (userOverrides["modes"] as Map)[activeMode] as String?;
+      isAllowed = overrideModality != "none" && overrideModality != "silent_log";
+    } else {
+      // Fallback to default system context policies
       if (activeMode == "sleep") {
-        if (priority == EventPriority.useful || priority == EventPriority.low) {
-          suppressed = true;
-          decidedModality = AlertModality.silentLog;
-          suppressionReason = "Suppressed low-value $priority sound in Sleep Mode.";
-        } else if (priority == EventPriority.important) {
-          decidedModality = AlertModality.vibrationFlashText; // Sleep mode raises important to vibration+flash
-        } else if (priority == EventPriority.critical) {
-          decidedModality = AlertModality.criticalFullScreen; // Critical sounds remain full screen
-        }
-      }
-      // Focus Mode Rules
-      else if (activeMode == "focus") {
-        if (priority != EventPriority.critical) {
-          suppressed = true;
-          decidedModality = AlertModality.silentLog;
-          suppressionReason = "Suppressed non-critical sound in Focus Mode.";
-        } else {
-          decidedModality = AlertModality.criticalFullScreen;
-        }
-      }
-      // Cooking Mode Rules
-      else if (activeMode == "cooking") {
-        final bool isCookingRelevant = rawSlug == "fire_alarm" ||
+        isAllowed = (priority == EventPriority.critical || priority == EventPriority.important);
+      } else if (activeMode == "focus") {
+        isAllowed = (priority == EventPriority.critical);
+      } else if (activeMode == "cooking") {
+        isAllowed = (rawSlug == "fire_alarm" ||
             rawSlug == "clock_alarm" ||
             rawSlug == "door_knock" ||
             rawSlug == "doorbell" ||
             rawSlug == "water_running" ||
-            rawSlug == "speech";
-        if (!isCookingRelevant) {
-          suppressed = true;
-          decidedModality = AlertModality.silentLog;
-          suppressionReason = "Suppressed non-cooking sound in Cooking Mode.";
-        }
+            rawSlug == "speech");
+      } else if (activeMode == "bathroom") {
+        isAllowed = (rawSlug != "water_running");
+      } else {
+        isAllowed = true;
       }
-      // Bathroom Mode Rules
-      else if (activeMode == "bathroom") {
-        if (rawSlug == "water_running") {
-          suppressed = true;
-          decidedModality = AlertModality.silentLog;
-          suppressionReason = "Suppressed running water in Bathroom Mode.";
-        } else if (priority == EventPriority.important) {
-          decidedModality = AlertModality.vibrationFlashText;
+    }
+
+    if (!isAllowed) {
+      suppressed = true;
+      decidedModality = AlertModality.silentLog;
+      suppressionReason = "Suppressed sound class '$rawSlug' in $activeMode mode per preferences.";
+    } else {
+      // If allowed, apply mode-specific modality enhancements if there's no custom mode override
+      if (!hasModeOverride) {
+        if (activeMode == "sleep") {
+          if (priority == EventPriority.important) {
+            decidedModality = AlertModality.vibrationFlashText;
+          } else if (priority == EventPriority.critical) {
+            decidedModality = AlertModality.criticalFullScreen;
+          }
+        } else if (activeMode == "focus") {
+          if (priority == EventPriority.critical) {
+            decidedModality = AlertModality.criticalFullScreen;
+          }
+        } else if (activeMode == "bathroom") {
+          if (priority == EventPriority.important) {
+            decidedModality = AlertModality.vibrationFlashText;
+          }
         }
       }
     }

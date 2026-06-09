@@ -1,4 +1,4 @@
-package com.example.soundpulse_mobile
+package com.oselumeseagbonrofo.soundpulse
 
 import android.Manifest
 import android.content.ComponentName
@@ -226,13 +226,25 @@ class MainActivity : FlutterActivity() {
                     }
 
                     "vibrate" -> {
-                        vibrate()
+                        val pattern = call.argument<String>("pattern") ?: "single"
+                        vibrate(pattern)
                         result.success(null)
                     }
 
                     "triggerCameraFlash" -> {
-                        triggerCameraFlash()
+                        val pattern = call.argument<String>("pattern") ?: "single"
+                        triggerCameraFlash(pattern)
                         result.success(null)
+                    }
+
+                    "hasCameraPermission" -> {
+                        val granted = ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+                        result.success(granted)
+                    }
+
+                    "requestCameraPermission" -> {
+                        requestPermissions(arrayOf(Manifest.permission.CAMERA), 102)
+                        result.success(true)
                     }
 
                     "requestNotificationPermission" -> {
@@ -476,15 +488,26 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun vibrate() {
+    private fun vibrate(pattern: String) {
+        val vibrator = getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
+        if (vibrator == null || !vibrator.hasVibrator()) return
+
         try {
-            val vibrator = getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
-            if (vibrator != null && vibrator.hasVibrator()) {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    vibrator.vibrate(VibrationEffect.createOneShot(500, VibrationEffect.DEFAULT_AMPLITUDE))
-                } else {
-                    @Suppress("DEPRECATION")
-                    vibrator.vibrate(500)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val effect = when (pattern) {
+                    "double" -> VibrationEffect.createWaveform(longArrayOf(0, 300, 200, 300), intArrayOf(0, VibrationEffect.DEFAULT_AMPLITUDE, 0, VibrationEffect.DEFAULT_AMPLITUDE), -1)
+                    "triple" -> VibrationEffect.createWaveform(longArrayOf(0, 200, 100, 200, 100, 200), intArrayOf(0, VibrationEffect.DEFAULT_AMPLITUDE, 0, VibrationEffect.DEFAULT_AMPLITUDE, 0, VibrationEffect.DEFAULT_AMPLITUDE), -1)
+                    "long" -> VibrationEffect.createOneShot(1000, VibrationEffect.DEFAULT_AMPLITUDE)
+                    else -> VibrationEffect.createOneShot(500, VibrationEffect.DEFAULT_AMPLITUDE)
+                }
+                vibrator.vibrate(effect)
+            } else {
+                @Suppress("DEPRECATION")
+                when (pattern) {
+                    "double" -> vibrator.vibrate(longArrayOf(0, 300, 200, 300), -1)
+                    "triple" -> vibrator.vibrate(longArrayOf(0, 200, 100, 200, 100, 200), -1)
+                    "long" -> vibrator.vibrate(1000)
+                    else -> vibrator.vibrate(500)
                 }
             }
         } catch (e: Exception) {
@@ -492,30 +515,40 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun triggerCameraFlash() {
+    private fun triggerCameraFlash(pattern: String) {
         try {
-            val cameraManager = getSystemService(Context.CAMERA_SERVICE) as? CameraManager
-            if (cameraManager != null) {
-                val cameraId = cameraManager.cameraIdList.firstOrNull { id ->
-                    val characteristics = cameraManager.getCameraCharacteristics(id)
-                    characteristics.get(android.hardware.camera2.CameraCharacteristics.FLASH_INFO_AVAILABLE) == true
-                }
-                if (cameraId != null) {
-                    Thread {
-                        try {
-                            for (i in 0 until 3) {
-                                cameraManager.setTorchMode(cameraId, true)
-                                Thread.sleep(100)
-                                cameraManager.setTorchMode(cameraId, false)
-                                Thread.sleep(100)
-                            }
-                        } catch (e: Exception) {
-                            try {
-                                cameraManager.setTorchMode(cameraId, false)
-                            } catch (_: Exception) {}
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(arrayOf(Manifest.permission.CAMERA), 102)
+                return
+            }
+            val cameraManager = getSystemService(Context.CAMERA_SERVICE) as? CameraManager ?: return
+            val cameraId = cameraManager.cameraIdList.firstOrNull { id ->
+                val characteristics = cameraManager.getCameraCharacteristics(id)
+                characteristics.get(android.hardware.camera2.CameraCharacteristics.FLASH_INFO_AVAILABLE) == true
+            } ?: return
+
+            val pulseCount = when (pattern) {
+                "double" -> 2
+                "strobe" -> 5
+                "none" -> 0
+                else -> 1
+            }
+
+            if (pulseCount > 0) {
+                Thread {
+                    try {
+                        for (i in 0 until pulseCount) {
+                            cameraManager.setTorchMode(cameraId, true)
+                            Thread.sleep(100)
+                            cameraManager.setTorchMode(cameraId, false)
+                            Thread.sleep(100)
                         }
-                    }.start()
-                }
+                    } catch (e: Exception) {
+                        try {
+                            cameraManager.setTorchMode(cameraId, false)
+                        } catch (ex: Exception) {}
+                    }
+                }.start()
             }
         } catch (e: Exception) {
             // Ignore camera flash errors

@@ -53,7 +53,7 @@ class _MonitorPageState extends State<MonitorPage> with WidgetsBindingObserver {
     PersonalizableSoundOption("crying_baby", "Crying baby"),
     PersonalizableSoundOption("water_running", "Water running"),
     PersonalizableSoundOption("dog_barking", "Dog barking"),
-    PersonalizableSoundOption("door_wood_creaking", "Door creaking"),
+    PersonalizableSoundOption("door_wood_creaking", "Door opening"),
     PersonalizableSoundOption("background", "Ambient background"),
   ];
 
@@ -118,14 +118,16 @@ class _MonitorPageState extends State<MonitorPage> with WidgetsBindingObserver {
       return;
     }
 
-    // Request notification permission on Android 13+ to ensure system alerts work
     unawaited(_runtimeBridge.requestNotificationPermission());
     
-    final bool batteryIgnored = await _runtimeBridge.isBatteryOptimizationIgnored();
-    if (!batteryIgnored){
-      unawaited(_runtimeBridge.requestIgnoreBatteryOptimizations());
+    try {
+      final bool batteryIgnored = await _runtimeBridge.isBatteryOptimizationIgnored();
+      if (!batteryIgnored) {
+        unawaited(_runtimeBridge.requestIgnoreBatteryOptimizations());
+      }
+    } catch (_) {
+      // Ignored in test/non-Android environments
     }
-    
 
     setState(() {
       _monitoring = storedMonitoring;
@@ -145,7 +147,8 @@ class _MonitorPageState extends State<MonitorPage> with WidgetsBindingObserver {
       for (final map in storedCustomClasses) {
         final String? slug = map["slug"] as String?;
         final String? label = map["label"] as String?;
-        if (slug != null && label != null) {
+        if (slug != null && label != null &&
+            !_soundOptions.any((opt) => opt.slug == slug)) {
           _soundOptions.add(PersonalizableSoundOption(slug, label));
         }
       }
@@ -209,6 +212,18 @@ class _MonitorPageState extends State<MonitorPage> with WidgetsBindingObserver {
           "Microphone permission is required to monitor sounds.");
       return;
     }
+
+    // Prompt for camera permission if any active configs use flash alerts
+    try {
+      final List<Map<String, dynamic>> configs = await _storageService.readAllClassConfigs();
+      final bool hasCameraFlashConfigured = configs.any((Map<String, dynamic> c) => c["custom_flash"] != "none");
+      if (hasCameraFlashConfigured) {
+        final bool hasCamPermission = await _runtimeBridge.hasCameraPermission();
+        if (!hasCamPermission) {
+          await _runtimeBridge.requestCameraPermission();
+        }
+      }
+    } catch (_) {}
 
     try {
       await _runtimeBridge.startMonitoring(mode: _mode, backbone: _backbone);
@@ -324,10 +339,6 @@ class _MonitorPageState extends State<MonitorPage> with WidgetsBindingObserver {
                 unawaited(_runtimeBridge.showNotification(title: title, body: body));
                 break;
               case AlertModality.standardVibrationText:
-                unawaited(_runtimeBridge.showNotification(title: title, body: body));
-                final String vibPattern = (userOverrides?["custom_vibration"] as String?) ?? "single";
-                unawaited(_triggerCustomAlertEffects(vibPattern, "none"));
-                break;
               case AlertModality.vibrationFlashText:
                 unawaited(_runtimeBridge.showNotification(title: title, body: body));
                 final String vibPattern = (userOverrides?["custom_vibration"] as String?) ?? "single";
@@ -507,26 +518,6 @@ class _MonitorPageState extends State<MonitorPage> with WidgetsBindingObserver {
 
     setState(() {
       _contextAware = enabled;
-    });
-  }
-
-  Future<void> _setVibrationEnabled(bool enabled) async {
-    await _storageService.saveVibrationEnabled(enabled);
-    if (!mounted) {
-      return;
-    }
-    setState(() {
-      _vibrationEnabled = enabled;
-    });
-  }
-
-  Future<void> _setCameraFlashEnabled(bool enabled) async {
-    await _storageService.saveCameraFlashEnabled(enabled);
-    if (!mounted) {
-      return;
-    }
-    setState(() {
-      _cameraFlashEnabled = enabled;
     });
   }
 
@@ -954,43 +945,16 @@ class _MonitorPageState extends State<MonitorPage> with WidgetsBindingObserver {
   }
 
   Future<void> _triggerCustomAlertEffects(String vibrationPattern, String flashPattern) async {
-    if (_vibrationEnabled) {
-      if (vibrationPattern == "double") {
-        await _runtimeBridge.vibrate();
-        await Future.delayed(const Duration(milliseconds: 300));
-        await _runtimeBridge.vibrate();
-      } else if (vibrationPattern == "triple") {
-        await _runtimeBridge.vibrate();
-        await Future.delayed(const Duration(milliseconds: 250));
-        await _runtimeBridge.vibrate();
-        await Future.delayed(const Duration(milliseconds: 250));
-        await _runtimeBridge.vibrate();
-      } else if (vibrationPattern == "long") {
-        await _runtimeBridge.vibrate();
-        await Future.delayed(const Duration(milliseconds: 600));
-        await _runtimeBridge.vibrate();
-      } else if (vibrationPattern == "none") {
-        // Do nothing
-      } else {
-        await _runtimeBridge.vibrate();
-      }
+    if (_vibrationEnabled && vibrationPattern != "none") {
+      await _runtimeBridge.vibrate(vibrationPattern);
     }
 
-    if (_cameraFlashEnabled) {
-      if (flashPattern == "double") {
-        await _runtimeBridge.triggerCameraFlash();
-        await Future.delayed(const Duration(milliseconds: 350));
-        await _runtimeBridge.triggerCameraFlash();
-      } else if (flashPattern == "strobe") {
-        for (int i = 0; i < 4; i++) {
-          await _runtimeBridge.triggerCameraFlash();
-          await Future.delayed(const Duration(milliseconds: 150));
-        }
-      } else if (flashPattern == "none") {
-        // Do nothing
-      } else {
-        await _runtimeBridge.triggerCameraFlash();
+    if (_cameraFlashEnabled && flashPattern != "none") {
+      final bool hasCamPermission = await _runtimeBridge.hasCameraPermission();
+      if (!hasCamPermission) {
+        await _runtimeBridge.requestCameraPermission();
       }
+      await _runtimeBridge.triggerCameraFlash(flashPattern);
     }
   }
 
@@ -1149,11 +1113,7 @@ class _MonitorPageState extends State<MonitorPage> with WidgetsBindingObserver {
                   recordedSounds: _recordedSounds,
                   soundOptions: _soundOptions,
                   personalisationLevel: _personalisationLevel,
-                  vibrationEnabled: _vibrationEnabled,
-                  cameraFlashEnabled: _cameraFlashEnabled,
                   onPersonalisationLevelChanged: _setPersonalisationLevel,
-                  onVibrationToggle: _setVibrationEnabled,
-                  onCameraFlashToggle: _setCameraFlashEnabled,
                   onSaveSound: _saveRecordedSound,
                   onRenameSound: _renameRecordedSound,
                   onDeleteSound: _deleteRecordedSound,

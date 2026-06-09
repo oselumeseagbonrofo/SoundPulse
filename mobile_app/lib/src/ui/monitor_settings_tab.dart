@@ -2,6 +2,7 @@ import "dart:async";
 import "package:flutter/material.dart";
 import "../storage/local_storage_service.dart";
 import "../runtime/runtime_bridge.dart";
+
 import "monitor_style.dart";
 
 class MonitorSettingsTab extends StatefulWidget {
@@ -27,23 +28,14 @@ class MonitorSettingsTab extends StatefulWidget {
 class _MonitorSettingsTabState extends State<MonitorSettingsTab> {
   final LocalStorageService _storageService = LocalStorageService();
   final RuntimeBridge _runtimeBridge = RuntimeBridge();
+
   List<Map<String, dynamic>> _configs = <Map<String, dynamic>>[];
   bool _loading = true;
 
   // Track which sound cards are expanded
   final Set<String> _expandedSlugs = <String>{};
 
-  // Human-friendly modality dropdown options
-  static const List<Map<String, String>> _modalityOptions = [
-    {"value": "none", "label": "Off (Ignore completely)"},
-    {"value": "silent_log", "label": "Log only (No notification or buzz)"},
-    {"value": "text_only", "label": "Screen Notification only (Silent)"},
-    {"value": "standard_vibration_text", "label": "Vibration Buzz + Notification"},
-    {"value": "vibration_flash_text", "label": "Vibration Buzz + Camera Flash + Notification"},
-    {"value": "critical_full_screen", "label": "Max Alert (Continuous Buzz + Strobe)"},
-  ];
-
-  // Human-friendly vibration options
+  // vibration options
   static const List<Map<String, String>> _vibrationOptions = [
     {"value": "single", "label": "Single Short Buzz"},
     {"value": "double", "label": "Double Pulse Buzz"},
@@ -52,7 +44,7 @@ class _MonitorSettingsTabState extends State<MonitorSettingsTab> {
     {"value": "none", "label": "No Haptic Vibration"},
   ];
 
-  // Human-friendly flash options
+  // flash options
   static const List<Map<String, String>> _flashOptions = [
     {"value": "single", "label": "Single Light Flash"},
     {"value": "double", "label": "Double Light Flash"},
@@ -76,6 +68,46 @@ class _MonitorSettingsTabState extends State<MonitorSettingsTab> {
     unawaited(_loadConfigs());
   }
 
+  Map<String, bool> _getInitialAllowValues(String slug) {
+    if (slug == "fire_alarm" || slug == "clock_alarm") {
+      return {
+        "allow_in_sleep_mode": true,
+        "allow_in_focus_mode": true,
+        "allow_in_cooking_mode": true,
+        "allow_in_bathroom_mode": true,
+      };
+    } else if (slug == "water_running") {
+      return {
+        "allow_in_sleep_mode": false,
+        "allow_in_focus_mode": false,
+        "allow_in_cooking_mode": true,
+        "allow_in_bathroom_mode": false,
+      };
+    } else if (slug == "door_knock" || slug == "doorbell" || slug == "speech") {
+      return {
+        "allow_in_sleep_mode": true,
+        "allow_in_focus_mode": false,
+        "allow_in_cooking_mode": true,
+        "allow_in_bathroom_mode": true,
+      };
+    } else if (slug == "crying_baby" || slug == "dog_barking" || slug == "door_wood_creaking") {
+      return {
+        "allow_in_sleep_mode": true,
+        "allow_in_focus_mode": false,
+        "allow_in_cooking_mode": false,
+        "allow_in_bathroom_mode": true,
+      };
+    } else {
+      // Custom classes defaults
+      return {
+        "allow_in_sleep_mode": true,
+        "allow_in_focus_mode": false,
+        "allow_in_cooking_mode": false,
+        "allow_in_bathroom_mode": true,
+      };
+    }
+  }
+
   Future<void> _loadConfigs() async {
     final List<Map<String, dynamic>> loadedConfigs = <Map<String, dynamic>>[];
 
@@ -88,7 +120,7 @@ class _MonitorSettingsTabState extends State<MonitorSettingsTab> {
       {"slug": "crying_baby", "label": "Crying baby"},
       {"slug": "water_running", "label": "Water running"},
       {"slug": "dog_barking", "label": "Dog barking"},
-      {"slug": "door_wood_creaking", "label": "Door creaking"},
+      {"slug": "door_wood_creaking", "label": "Door opening"},
       {"slug": "speech", "label": "Speech"},
     ];
 
@@ -101,6 +133,7 @@ class _MonitorSettingsTabState extends State<MonitorSettingsTab> {
       final String slug = standard["slug"]!;
       final String label = standard["label"]!;
       Map<String, dynamic>? config = await _storageService.readClassConfig(slug);
+      bool needsSave = false;
 
       if (config == null) {
         config = <String, dynamic>{
@@ -111,7 +144,9 @@ class _MonitorSettingsTabState extends State<MonitorSettingsTab> {
           "modes": <String, String>{},
           "custom_vibration": "single",
           "custom_flash": "single",
+          ..._getInitialAllowValues(slug),
         };
+        needsSave = true;
       } else {
         // Enforce fallback structure just in case
         config["enabled"] ??= true;
@@ -119,6 +154,18 @@ class _MonitorSettingsTabState extends State<MonitorSettingsTab> {
         config["modes"] ??= <String, String>{};
         config["custom_vibration"] ??= "single";
         config["custom_flash"] ??= "single";
+
+        final defaults = _getInitialAllowValues(slug);
+        defaults.forEach((key, val) {
+          if (config![key] == null) {
+            config[key] = val;
+            needsSave = true;
+          }
+        });
+      }
+
+      if (needsSave) {
+        await _storageService.saveClassConfig(slug, config);
       }
       loadedConfigs.add(config);
     }
@@ -129,6 +176,8 @@ class _MonitorSettingsTabState extends State<MonitorSettingsTab> {
       if (standards.any((s) => s["slug"] == slug)) continue;
 
       Map<String, dynamic>? config = await _storageService.readClassConfig(slug);
+      bool needsSave = false;
+
       if (config == null) {
         config = <String, dynamic>{
           "slug": slug,
@@ -138,13 +187,27 @@ class _MonitorSettingsTabState extends State<MonitorSettingsTab> {
           "modes": <String, String>{},
           "custom_vibration": "single",
           "custom_flash": "single",
+          ..._getInitialAllowValues(slug),
         };
+        needsSave = true;
       } else {
         config["enabled"] ??= true;
         config["is_custom"] = true;
         config["modes"] ??= <String, String>{};
         config["custom_vibration"] ??= "single";
         config["custom_flash"] ??= "single";
+
+        final defaults = _getInitialAllowValues(slug);
+        defaults.forEach((key, val) {
+          if (config![key] == null) {
+            config[key] = val;
+            needsSave = true;
+          }
+        });
+      }
+
+      if (needsSave) {
+        await _storageService.saveClassConfig(slug, config);
       }
       loadedConfigs.add(config);
     }
@@ -208,51 +271,32 @@ class _MonitorSettingsTabState extends State<MonitorSettingsTab> {
     return Icons.waves;
   }
 
-  Widget _buildModalitySelector({
+  Widget _buildModeAllowSwitch({
     required String modeSlug,
-    required String activeModalityValue,
-    required void Function(String newValue) onChanged,
+    required bool allowed,
+    required void Function(bool newValue) onChanged,
   }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        Text(
-          "${monitorLabelForMode(modeSlug)} Mode preference",
-          style: const TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
-            color: monitorOnSurfaceVariant,
-          ),
-        ),
-        const SizedBox(height: 6),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          decoration: monitorPressed(radius: 12),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
-              value: activeModalityValue,
-              isExpanded: true,
-              icon: const Icon(Icons.arrow_drop_down, color: monitorOnSurfaceVariant),
-              dropdownColor: monitorSurface,
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: monitorOnSurface,
-              ),
-              items: _modalityOptions.map((opt) {
-                return DropdownMenuItem<String>(
-                  value: opt["value"],
-                  child: Text(opt["label"]!),
-                );
-              }).toList(),
-              onChanged: (String? val) {
-                if (val != null) onChanged(val);
-              },
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: <Widget>[
+          Text(
+            "Enable in ${monitorLabelForMode(modeSlug)} Mode",
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: monitorOnSurface,
             ),
           ),
-        ),
-        const SizedBox(height: 12),
-      ],
+          Switch.adaptive(
+            value: allowed,
+            activeThumbColor: monitorPrimary,
+            activeTrackColor: monitorPrimarySoft.withValues(alpha: 0.35),
+            onChanged: onChanged,
+          ),
+        ],
+      ),
     );
   }
 
@@ -416,7 +460,6 @@ class _MonitorSettingsTabState extends State<MonitorSettingsTab> {
                     final String label = config["label"] as String;
                     final bool enabled = config["enabled"] as bool? ?? true;
                     final bool isCustom = config["is_custom"] as bool? ?? false;
-                    final Map<dynamic, dynamic> modesMap = config["modes"] as Map? ?? <dynamic, dynamic>{};
                     final String customVib = config["custom_vibration"] as String? ?? "single";
                     final String customFls = config["custom_flash"] as String? ?? "single";
                     final bool expanded = _expandedSlugs.contains(slug);
@@ -524,7 +567,7 @@ class _MonitorSettingsTabState extends State<MonitorSettingsTab> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: <Widget>[
                                   const Text(
-                                    "ALERT MODAL PREFERENCES",
+                                    "ENABLE SOUND IN CONTEXT MODES",
                                     style: TextStyle(
                                       fontSize: 11,
                                       fontWeight: FontWeight.w800,
@@ -533,85 +576,43 @@ class _MonitorSettingsTabState extends State<MonitorSettingsTab> {
                                     ),
                                   ),
                                   const SizedBox(height: 12),
-                                  // Modality fields for the 5 context modes
-                                  _buildModalitySelector(
-                                    modeSlug: "general",
-                                    activeModalityValue: (modesMap["general"] as String?) ??
-                                        (slug == "fire_alarm" || slug == "clock_alarm"
-                                            ? "critical_full_screen"
-                                            : slug == "water_running"
-                                                ? "standard_vibration_text"
-                                                : slug == "speech" || slug == "dog_barking"
-                                                    ? "standard_vibration_text"
-                                                    : "vibration_flash_text"),
-                                    onChanged: (String newMod) {
-                                      final Map<String, dynamic> nextConfig =
-                                          Map<String, dynamic>.from(config);
-                                      final Map<dynamic, dynamic> nextModes =
-                                          Map<dynamic, dynamic>.from(nextConfig["modes"] as Map? ?? <dynamic, dynamic>{});
-                                      nextModes["general"] = newMod;
-                                      nextConfig["modes"] = nextModes;
-                                      unawaited(_updateConfig(slug, nextConfig));
-                                    },
-                                  ),
-                                  _buildModalitySelector(
-                                    modeSlug: "focus",
-                                    activeModalityValue: (modesMap["focus"] as String?) ?? "silent_log",
-                                    onChanged: (String newMod) {
-                                      final Map<String, dynamic> nextConfig =
-                                          Map<String, dynamic>.from(config);
-                                      final Map<dynamic, dynamic> nextModes =
-                                          Map<dynamic, dynamic>.from(nextConfig["modes"] as Map? ?? <dynamic, dynamic>{});
-                                      nextModes["focus"] = newMod;
-                                      nextConfig["modes"] = nextModes;
-                                      unawaited(_updateConfig(slug, nextConfig));
-                                    },
-                                  ),
-                                  _buildModalitySelector(
+                                  _buildModeAllowSwitch(
                                     modeSlug: "sleep",
-                                    activeModalityValue: (modesMap["sleep"] as String?) ??
-                                        (slug == "fire_alarm" || slug == "clock_alarm"
-                                            ? "critical_full_screen"
-                                            : slug == "water_running"
-                                                ? "silent_log"
-                                                : "vibration_flash_text"),
-                                    onChanged: (String newMod) {
+                                    allowed: config["allow_in_sleep_mode"] as bool? ?? true,
+                                    onChanged: (bool nextVal) {
                                       final Map<String, dynamic> nextConfig =
                                           Map<String, dynamic>.from(config);
-                                      final Map<dynamic, dynamic> nextModes =
-                                          Map<dynamic, dynamic>.from(nextConfig["modes"] as Map? ?? <dynamic, dynamic>{});
-                                      nextModes["sleep"] = newMod;
-                                      nextConfig["modes"] = nextModes;
+                                      nextConfig["allow_in_sleep_mode"] = nextVal;
                                       unawaited(_updateConfig(slug, nextConfig));
                                     },
                                   ),
-                                  _buildModalitySelector(
+                                  _buildModeAllowSwitch(
+                                    modeSlug: "focus",
+                                    allowed: config["allow_in_focus_mode"] as bool? ?? true,
+                                    onChanged: (bool nextVal) {
+                                      final Map<String, dynamic> nextConfig =
+                                          Map<String, dynamic>.from(config);
+                                      nextConfig["allow_in_focus_mode"] = nextVal;
+                                      unawaited(_updateConfig(slug, nextConfig));
+                                    },
+                                  ),
+                                  _buildModeAllowSwitch(
                                     modeSlug: "cooking",
-                                    activeModalityValue: (modesMap["cooking"] as String?) ??
-                                        (slug == "fire_alarm" || slug == "clock_alarm" || slug == "water_running"
-                                            ? "vibration_flash_text"
-                                            : "standard_vibration_text"),
-                                    onChanged: (String newMod) {
+                                    allowed: config["allow_in_cooking_mode"] as bool? ?? true,
+                                    onChanged: (bool nextVal) {
                                       final Map<String, dynamic> nextConfig =
                                           Map<String, dynamic>.from(config);
-                                      final Map<dynamic, dynamic> nextModes =
-                                          Map<dynamic, dynamic>.from(nextConfig["modes"] as Map? ?? <dynamic, dynamic>{});
-                                      nextModes["cooking"] = newMod;
-                                      nextConfig["modes"] = nextModes;
+                                      nextConfig["allow_in_cooking_mode"] = nextVal;
                                       unawaited(_updateConfig(slug, nextConfig));
                                     },
                                   ),
-                                  _buildModalitySelector(
+                                  _buildModeAllowSwitch(
                                     modeSlug: "bathroom",
-                                    activeModalityValue: (modesMap["bathroom"] as String?) ??
-                                        (slug == "water_running" ? "silent_log" : "vibration_flash_text"),
-                                    onChanged: (String newMod) {
+                                    allowed: config["allow_in_bathroom_mode"] as bool? ?? true,
+                                    onChanged: (bool nextVal) {
                                       final Map<String, dynamic> nextConfig =
                                           Map<String, dynamic>.from(config);
-                                      final Map<dynamic, dynamic> nextModes =
-                                          Map<dynamic, dynamic>.from(nextConfig["modes"] as Map? ?? <dynamic, dynamic>{});
-                                      nextModes["bathroom"] = newMod;
-                                      nextConfig["modes"] = nextModes;
+                                      nextConfig["allow_in_bathroom_mode"] = nextVal;
                                       unawaited(_updateConfig(slug, nextConfig));
                                     },
                                   ),
@@ -642,11 +643,17 @@ class _MonitorSettingsTabState extends State<MonitorSettingsTab> {
                                     label: "Custom Camera Flash Pattern",
                                     activeValue: customFls,
                                     options: _flashOptions,
-                                    onChanged: (String newVal) {
+                                    onChanged: (String newVal) async {
                                       final Map<String, dynamic> nextConfig =
                                           Map<String, dynamic>.from(config);
                                       nextConfig["custom_flash"] = newVal;
-                                      unawaited(_updateConfig(slug, nextConfig));
+                                      await _updateConfig(slug, nextConfig);
+                                      if (newVal != "none") {
+                                        final bool hasCam = await _runtimeBridge.hasCameraPermission();
+                                        if (!hasCam) {
+                                          await _runtimeBridge.requestCameraPermission();
+                                        }
+                                      }
                                     },
                                   ),
                                 ],

@@ -1,5 +1,6 @@
-package com.example.soundpulse_mobile
+package com.oselumeseagbonrofo.soundpulse
 
+import android.Manifest
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -7,12 +8,14 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.hardware.camera2.CameraManager
 import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.MediaRecorder
 import android.os.Binder
 import android.os.Build
+import androidx.core.content.ContextCompat
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
@@ -34,7 +37,7 @@ class SoundMonitoringService : Service() {
     private val binder = SoundMonitoringBinder()
     private val monitoringLock = Any()
     private val sampleRateHz = 16_000
-    private val captureChunkSamples = 1024
+    private val captureChunkSamples = 16_000
     private val channelConfig = AudioFormat.CHANNEL_IN_MONO
     private val audioFormat = AudioFormat.ENCODING_PCM_16BIT
 
@@ -627,6 +630,9 @@ class SoundMonitoringService : Service() {
     // Camera Flash Strobe implementation
     private fun triggerCameraFlash(pattern: String) {
         try {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+                return
+            }
             val cameraManager = getSystemService(Context.CAMERA_SERVICE) as? CameraManager ?: return
             val cameraId = cameraManager.cameraIdList.firstOrNull { id ->
                 val characteristics = cameraManager.getCameraCharacteristics(id)
