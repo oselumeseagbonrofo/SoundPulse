@@ -38,6 +38,8 @@ class MainActivity : FlutterActivity() {
     private var soundService: SoundMonitoringService? = null
     private var isServiceBound = false
     private var eventSink: EventChannel.EventSink? = null
+    private var pendingStartResult: MethodChannel.Result? = null
+    private var pendingInitResult: MethodChannel.Result? = null
 
     private val serviceConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
@@ -55,6 +57,18 @@ class MainActivity : FlutterActivity() {
                     dispatchMonitoringError(code, message)
                 }
             })
+
+            // Complete any pending start or initialization results once engine is ready
+            val engine = s?.getRuntimeEngine()
+            if (engine != null) {
+                pendingStartResult?.success(null)
+                pendingInitResult?.success(null)
+            } else {
+                pendingStartResult?.error("runtime_not_initialized", "Engine failed to initialize.", null)
+                pendingInitResult?.error("runtime_not_initialized", "Engine failed to initialize.", null)
+            }
+            pendingStartResult = null
+            pendingInitResult = null
         }
 
         override fun onServiceDisconnected(name: ComponentName?) {
@@ -100,21 +114,16 @@ class MainActivity : FlutterActivity() {
                         val thresholdDefaultsPath = call.argument<String>("thresholdDefaultsPath")
                         val prototypeStorePath = call.argument<String>("prototypeStorePath")
 
-                        val startError = startMonitoring(
+                        startMonitoring(
                             backbone,
                             modelPath,
                             classLabelsPath,
                             preprocessingConfigPath,
                             thresholdDefaultsPath,
                             prototypeStorePath,
-                            activeModeStr
+                            activeModeStr,
+                            result
                         )
-
-                        if (startError == null) {
-                            result.success(null)
-                        } else {
-                            result.error(startError.code, startError.message, null)
-                        }
                     }
 
                     "initializeRuntime" -> {
@@ -125,19 +134,15 @@ class MainActivity : FlutterActivity() {
                         val thresholdDefaultsPath = call.argument<String>("thresholdDefaultsPath")
                         val prototypeStorePath = call.argument<String>("prototypeStorePath")
 
-                        val initError = initializeRuntime(
+                        initializeRuntime(
                             backbone,
                             modelPath,
                             classLabelsPath,
                             preprocessingConfigPath,
                             thresholdDefaultsPath,
-                            prototypeStorePath
+                            prototypeStorePath,
+                            result
                         )
-                        if (initError == null) {
-                            result.success(null)
-                        } else {
-                            result.error(initError.code, initError.message, null)
-                        }
                     }
 
                     "stopMonitoring" -> {
@@ -315,19 +320,31 @@ class MainActivity : FlutterActivity() {
         preprocessingConfigPath: String?,
         thresholdDefaultsPath: String?,
         prototypeStorePath: String?,
-        mode: String
-    ): StartMonitoringError? {
+        mode: String,
+        result: MethodChannel.Result
+    ) {
         if (modelPath == null || classLabelsPath == null || preprocessingConfigPath == null ||
             thresholdDefaultsPath == null || prototypeStorePath == null) {
-            return StartMonitoringError("invalid_arguments", "Missing file paths for engine initialization.")
+            result.error("invalid_arguments", "Missing file paths for engine initialization.", null)
+            return
         }
 
         if (!hasRecordAudioPermission()) {
-            return StartMonitoringError(
+            result.error(
                 "record_audio_permission_denied",
                 "RECORD_AUDIO permission is required to start monitoring.",
+                null
             )
+            return
         }
+
+        val s = soundService
+        if (s != null && s.getRuntimeEngine() != null) {
+            result.success(null)
+            return
+        }
+
+        pendingStartResult = result
 
         val intent = Intent(this, SoundMonitoringService::class.java).apply {
             action = "START_MONITORING"
@@ -346,8 +363,11 @@ class MainActivity : FlutterActivity() {
             startService(intent)
         }
 
-        bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE)
-        return null
+        val bound = bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE)
+        if (!bound) {
+            result.error("service_bind_failed", "Failed to bind to SoundMonitoringService.", null)
+            pendingStartResult = null
+        }
     }
 
     private fun initializeRuntime(
@@ -356,12 +376,22 @@ class MainActivity : FlutterActivity() {
         classLabelsPath: String?,
         preprocessingConfigPath: String?,
         thresholdDefaultsPath: String?,
-        prototypeStorePath: String?
-    ): StartMonitoringError? {
+        prototypeStorePath: String?,
+        result: MethodChannel.Result
+    ) {
         if (modelPath == null || classLabelsPath == null || preprocessingConfigPath == null ||
             thresholdDefaultsPath == null || prototypeStorePath == null) {
-            return StartMonitoringError("invalid_arguments", "Missing file paths for engine initialization.")
+            result.error("invalid_arguments", "Missing file paths for engine initialization.", null)
+            return
         }
+
+        val s = soundService
+        if (s != null && s.getRuntimeEngine() != null) {
+            result.success(null)
+            return
+        }
+
+        pendingInitResult = result
 
         val intent = Intent(this, SoundMonitoringService::class.java).apply {
             action = "INITIALIZE_RUNTIME"
@@ -379,8 +409,11 @@ class MainActivity : FlutterActivity() {
             startService(intent)
         }
 
-        bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE)
-        return null
+        val bound = bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE)
+        if (!bound) {
+            result.error("service_bind_failed", "Failed to bind to SoundMonitoringService.", null)
+            pendingInitResult = null
+        }
     }
 
     private fun stopMonitoring() {
@@ -555,8 +588,4 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private data class StartMonitoringError(
-        val code: String,
-        val message: String,
-    )
 }
