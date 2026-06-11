@@ -30,5 +30,9 @@ flutter:
     - assets/config/threshold_defaults.json
     - assets/models/tiny_cnn/tinycnn_embedding.tflite
     - assets/models/tiny_cnn/prototype_store.json
+    - assets/models/tiny_cnn/threshold_defaults.json
     - assets/models/yamnet/yamnet_embedding.tflite
     - assets/models/yamnet/prototype_store.json
+    - assets/models/yamnet/threshold_defaults.json
+    - assets/benchmark/
+

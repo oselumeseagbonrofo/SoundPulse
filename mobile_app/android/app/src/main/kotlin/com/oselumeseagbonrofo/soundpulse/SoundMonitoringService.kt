@@ -112,6 +112,9 @@ class SoundMonitoringService : Service() {
             return START_NOT_STICKY
         }
 
+        // Call startForeground immediately to avoid ForegroundServiceDidNotStartInTimeException
+        startForeground(serviceNotificationId, buildForegroundNotification())
+
         val startedFromBoot = intent?.getBooleanExtra("started_from_boot", false) ?: false
         val prefs = getSharedPreferences("soundpulse", Context.MODE_PRIVATE)
 
@@ -135,9 +138,13 @@ class SoundMonitoringService : Service() {
                     prototypeStorePath
                 )
                 if (initError == null) {
-                    startMonitoringInternal()
+                    startAudioCapture()
+                } else {
+                    stopMonitoring()
+                    stopSelf()
                 }
             } else {
+                stopMonitoring()
                 stopSelf()
             }
         } else {
@@ -174,10 +181,13 @@ class SoundMonitoringService : Service() {
                 prototypeStorePath
             )
             if (initError == null) {
-                startForeground(serviceNotificationId, buildForegroundNotification())
                 if (action == "START_MONITORING") {
                     startAudioCapture()
                 }
+            } else {
+                clientListener?.onError("engine_init_failed", initError)
+                stopMonitoring()
+                stopSelf()
             }
         }
 
@@ -456,6 +466,15 @@ class SoundMonitoringService : Service() {
                 val userAlertModality = overrides.optString("user_alert_modality", "")
                 if (userAlertModality.isNotEmpty()) {
                     modality = userAlertModality
+                }
+            }
+
+            if (overrides.has("full_screen_alert")) {
+                val fullScreenEnabled = overrides.optBoolean("full_screen_alert", false)
+                if (!fullScreenEnabled && modality == "critical_full_screen") {
+                    modality = "vibration_flash_text"
+                } else if (fullScreenEnabled) {
+                    modality = "critical_full_screen"
                 }
             }
         }
@@ -851,12 +870,22 @@ class SoundMonitoringService : Service() {
         try {
             val intent = packageManager.getLaunchIntentForPackage(packageName)?.apply {
                 flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                if (isCritical) {
+                    putExtra("critical_alert_triggered", true)
+                    putExtra("alert_sound_label", title)
+                    putExtra("alert_body", body)
+                }
+            }
+            val pendingFlags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
+            } else {
+                PendingIntent.FLAG_UPDATE_CURRENT
             }
             val pendingIntent = PendingIntent.getActivity(
                 this,
                 0,
                 intent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                pendingFlags
             )
 
             val builder = NotificationCompat.Builder(this, alertChannelId)

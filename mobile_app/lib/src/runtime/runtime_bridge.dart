@@ -42,8 +42,8 @@ class RuntimeBridge {
       "preprocessing_config.json",
     );
     final String thresholdDefaultsPath = await _copyAssetToLocalFile(
-      "assets/config/threshold_defaults.json",
-      "threshold_defaults.json",
+      "assets/models/$backbone/threshold_defaults.json",
+      "threshold_defaults_$backbone.json",
     );
 
     // 2. Copy backbone-specific files to local files
@@ -180,4 +180,48 @@ class RuntimeBridge {
   Future<void> requestIgnoreBatteryOptimizations() {
     return _methods.invokeMethod<void>("requestIgnoreBatteryOptimizations");
   }
+
+  Future<String?> getActiveCriticalAlert() {
+    return _methods.invokeMethod<String?>("getActiveCriticalAlert");
+  }
+
+  Future<void> clearActiveCriticalAlert() {
+    return _methods.invokeMethod<void>("clearActiveCriticalAlert");
+  }
+
+  void setCriticalAlertListener(void Function(String sound) listener) {
+    _methods.setMethodCallHandler((MethodCall call) async {
+      if (call.method == "onCriticalAlertReceived") {
+        final Map<dynamic, dynamic>? args = call.arguments as Map<dynamic, dynamic>?;
+        final String? sound = args?["sound"] as String?;
+        if (sound != null) {
+          listener(sound);
+        }
+      }
+    });
+  }
+
+  Future<int> getBatteryLevel() async {
+    return await _methods.invokeMethod<int>("getBatteryLevel") ?? -1;
+  }
+
+  Future<Map<String, dynamic>> runOnDeviceBenchmark({
+    required String backbone,
+    required List<List<double>> samplesList,
+    required List<String> labelsList,
+  }) async {
+    final Map<String, dynamic> args = await _runtimeAssetArgs(backbone);
+    args["samplesList"] = samplesList;
+    args["labelsList"] = labelsList;
+
+    final response = await _methods.invokeMethod<Map<dynamic, dynamic>>(
+      "runOnDeviceBenchmark",
+      args,
+    );
+    if (response == null) {
+      return const <String, dynamic>{};
+    }
+    return Map<String, dynamic>.from(response);
+  }
 }
+

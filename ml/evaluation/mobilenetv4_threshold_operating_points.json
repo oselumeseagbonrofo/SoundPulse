@@ -1,0 +1,418 @@
+[
+  {
+    "name": "selected_release_candidate",
+    "description": "Toleranced candidate that preserves known validation quality while improving rejection.",
+    "candidate_id": 953,
+    "thresholds": {
+      "distance_threshold": 0.7941,
+      "unknown_ratio_threshold": 0.9945,
+      "loudness_floor_dbfs": -55.0
+    },
+    "calibration_validation": {
+      "accuracy": 0.2386,
+      "macro_f1": 0.233,
+      "macro_recall": 0.2297,
+      "urgent_recall": 0.2877,
+      "background_non_alert_rate": 0.0
+    },
+    "unknown_calibration": {
+      "unknown_precision": 0.781,
+      "unknown_recall": 0.1045,
+      "unknown_non_alert_rate": 0.124,
+      "false_alert_rate": 0.876
+    },
+    "balanced_score": 0.2703,
+    "holdout_known_test": {
+      "accuracy": 0.2177,
+      "macro_f1": 0.1798,
+      "macro_recall": 0.1966,
+      "urgent_recall": 0.1804,
+      "background_non_alert_rate": 0.0
+    },
+    "holdout_open_set": {
+      "unknown_precision": 0.7447,
+      "unknown_recall": 0.1025,
+      "unknown_non_alert_rate": 0.1211,
+      "false_alert_rate": 0.8789
+    },
+    "known_test_label_breakdown": {
+      "background": 3,
+      "clock_alarm": 13,
+      "crying_baby": 86,
+      "dog_barking": 20,
+      "door_knock": 36,
+      "door_wood_creaking": 28,
+      "doorbell": 31,
+      "fire_alarm": 35,
+      "speech": 33,
+      "unknown": 36,
+      "water_running": 143
+    },
+    "unknown_holdout_label_breakdown": {
+      "background": 19,
+      "clock_alarm": 45,
+      "crying_baby": 143,
+      "dog_barking": 25,
+      "door_knock": 116,
+      "door_wood_creaking": 65,
+      "doorbell": 38,
+      "fire_alarm": 178,
+      "speech": 52,
+      "unknown": 105,
+      "water_running": 238
+    },
+    "top_unknown_false_alert_categories": [
+      {
+        "source_category": "Cowbell",
+        "final_label": "door_knock",
+        "count": 10
+      },
+      {
+        "source_category": "Fill_(with_liquid)",
+        "final_label": "water_running",
+        "count": 10
+      },
+      {
+        "source_category": "Car_passing_by",
+        "final_label": "water_running",
+        "count": 9
+      },
+      {
+        "source_category": "Fixed-wing_aircraft_and_airplane",
+        "final_label": "water_running",
+        "count": 9
+      },
+      {
+        "source_category": "Female_singing",
+        "final_label": "crying_baby",
+        "count": 8
+      },
+      {
+        "source_category": "Electric_guitar",
+        "final_label": "fire_alarm",
+        "count": 8
+      },
+      {
+        "source_category": "Hiss",
+        "final_label": "water_running",
+        "count": 7
+      },
+      {
+        "source_category": "Bass_drum",
+        "final_label": "door_knock",
+        "count": 7
+      },
+      {
+        "source_category": "Cheering",
+        "final_label": "crying_baby",
+        "count": 7
+      },
+      {
+        "source_category": "Chirp_and_tweet",
+        "final_label": "water_running",
+        "count": 7
+      },
+      {
+        "source_category": "Gull_and_seagull",
+        "final_label": "water_running",
+        "count": 7
+      },
+      {
+        "source_category": "Gurgling",
+        "final_label": "water_running",
+        "count": 7
+      },
+      {
+        "source_category": "Gong",
+        "final_label": "fire_alarm",
+        "count": 7
+      },
+      {
+        "source_category": "Boiling",
+        "final_label": "water_running",
+        "count": 6
+      },
+      {
+        "source_category": "Harp",
+        "final_label": "fire_alarm",
+        "count": 6
+      }
+    ]
+  },
+  {
+    "name": "best_balanced_score",
+    "description": "Highest overall calibration-stage balanced score.",
+    "candidate_id": 361,
+    "thresholds": {
+      "distance_threshold": 0.5909,
+      "unknown_ratio_threshold": 0.85,
+      "loudness_floor_dbfs": -60.0
+    },
+    "calibration_validation": {
+      "accuracy": 0.0508,
+      "macro_f1": 0.0833,
+      "macro_recall": 0.0585,
+      "urgent_recall": 0.0762,
+      "background_non_alert_rate": 0.0
+    },
+    "unknown_calibration": {
+      "unknown_precision": 0.724,
+      "unknown_recall": 0.8428,
+      "unknown_non_alert_rate": 0.8496,
+      "false_alert_rate": 0.1504
+    },
+    "balanced_score": 0.3358,
+    "holdout_known_test": {
+      "accuracy": 0.0647,
+      "macro_f1": 0.0742,
+      "macro_recall": 0.0536,
+      "urgent_recall": 0.0425,
+      "background_non_alert_rate": 0.0
+    },
+    "holdout_open_set": {
+      "unknown_precision": 0.6965,
+      "unknown_recall": 0.8428,
+      "unknown_non_alert_rate": 0.8486,
+      "false_alert_rate": 0.1514
+    },
+    "known_test_label_breakdown": {
+      "background": 1,
+      "clock_alarm": 2,
+      "crying_baby": 12,
+      "dog_barking": 1,
+      "door_knock": 15,
+      "doorbell": 5,
+      "fire_alarm": 2,
+      "unknown": 376,
+      "water_running": 50
+    },
+    "unknown_holdout_label_breakdown": {
+      "background": 6,
+      "clock_alarm": 3,
+      "crying_baby": 20,
+      "door_knock": 32,
+      "doorbell": 3,
+      "fire_alarm": 5,
+      "speech": 1,
+      "unknown": 863,
+      "water_running": 91
+    },
+    "top_unknown_false_alert_categories": [
+      {
+        "source_category": "Fill_(with_liquid)",
+        "final_label": "water_running",
+        "count": 8
+      },
+      {
+        "source_category": "Chirp_and_tweet",
+        "final_label": "water_running",
+        "count": 5
+      },
+      {
+        "source_category": "Bass_drum",
+        "final_label": "door_knock",
+        "count": 5
+      },
+      {
+        "source_category": "Cowbell",
+        "final_label": "door_knock",
+        "count": 5
+      },
+      {
+        "source_category": "Female_singing",
+        "final_label": "crying_baby",
+        "count": 4
+      },
+      {
+        "source_category": "Bird",
+        "final_label": "door_knock",
+        "count": 4
+      },
+      {
+        "source_category": "Fixed-wing_aircraft_and_airplane",
+        "final_label": "water_running",
+        "count": 3
+      },
+      {
+        "source_category": "Bus",
+        "final_label": "water_running",
+        "count": 3
+      },
+      {
+        "source_category": "Car_passing_by",
+        "final_label": "water_running",
+        "count": 3
+      },
+      {
+        "source_category": "Frog",
+        "final_label": "water_running",
+        "count": 3
+      },
+      {
+        "source_category": "Boiling",
+        "final_label": "water_running",
+        "count": 3
+      },
+      {
+        "source_category": "Hiss",
+        "final_label": "water_running",
+        "count": 3
+      },
+      {
+        "source_category": "Gurgling",
+        "final_label": "water_running",
+        "count": 3
+      },
+      {
+        "source_category": "Gull_and_seagull",
+        "final_label": "water_running",
+        "count": 3
+      },
+      {
+        "source_category": "Giggle",
+        "final_label": "crying_baby",
+        "count": 3
+      }
+    ]
+  },
+  {
+    "name": "best_unknown_rejection",
+    "description": "Most aggressive unknown rejection while staying near the known-set baseline when possible.",
+    "candidate_id": 719,
+    "thresholds": {
+      "distance_threshold": 0.6747,
+      "unknown_ratio_threshold": 0.9945,
+      "loudness_floor_dbfs": -42.5
+    },
+    "calibration_validation": {
+      "accuracy": 0.1777,
+      "macro_f1": 0.1986,
+      "macro_recall": 0.1765,
+      "urgent_recall": 0.2524,
+      "background_non_alert_rate": 0.0
+    },
+    "unknown_calibration": {
+      "unknown_precision": 0.7714,
+      "unknown_recall": 0.2373,
+      "unknown_non_alert_rate": 0.3428,
+      "false_alert_rate": 0.6572
+    },
+    "balanced_score": 0.2843,
+    "holdout_known_test": {
+      "accuracy": 0.1918,
+      "macro_f1": 0.175,
+      "macro_recall": 0.1743,
+      "urgent_recall": 0.1574,
+      "background_non_alert_rate": 0.0
+    },
+    "holdout_open_set": {
+      "unknown_precision": 0.7347,
+      "unknown_recall": 0.2109,
+      "unknown_non_alert_rate": 0.3096,
+      "false_alert_rate": 0.6904
+    },
+    "known_test_label_breakdown": {
+      "background": 41,
+      "clock_alarm": 11,
+      "crying_baby": 61,
+      "dog_barking": 18,
+      "door_knock": 32,
+      "door_wood_creaking": 22,
+      "doorbell": 26,
+      "fire_alarm": 24,
+      "speech": 27,
+      "unknown": 78,
+      "water_running": 124
+    },
+    "unknown_holdout_label_breakdown": {
+      "background": 101,
+      "clock_alarm": 38,
+      "crying_baby": 110,
+      "dog_barking": 15,
+      "door_knock": 85,
+      "door_wood_creaking": 59,
+      "doorbell": 35,
+      "fire_alarm": 141,
+      "speech": 26,
+      "unknown": 216,
+      "water_running": 198
+    },
+    "top_unknown_false_alert_categories": [
+      {
+        "source_category": "Cowbell",
+        "final_label": "door_knock",
+        "count": 10
+      },
+      {
+        "source_category": "Fixed-wing_aircraft_and_airplane",
+        "final_label": "water_running",
+        "count": 9
+      },
+      {
+        "source_category": "Female_singing",
+        "final_label": "crying_baby",
+        "count": 8
+      },
+      {
+        "source_category": "Car_passing_by",
+        "final_label": "water_running",
+        "count": 8
+      },
+      {
+        "source_category": "Electric_guitar",
+        "final_label": "fire_alarm",
+        "count": 8
+      },
+      {
+        "source_category": "Chirp_and_tweet",
+        "final_label": "water_running",
+        "count": 7
+      },
+      {
+        "source_category": "Hiss",
+        "final_label": "water_running",
+        "count": 7
+      },
+      {
+        "source_category": "Fill_(with_liquid)",
+        "final_label": "water_running",
+        "count": 7
+      },
+      {
+        "source_category": "Gull_and_seagull",
+        "final_label": "water_running",
+        "count": 7
+      },
+      {
+        "source_category": "Bass_drum",
+        "final_label": "door_knock",
+        "count": 7
+      },
+      {
+        "source_category": "Human_group_actions",
+        "final_label": "water_running",
+        "count": 6
+      },
+      {
+        "source_category": "Bird_vocalization_and_bird_call_and_bird_song",
+        "final_label": "water_running",
+        "count": 6
+      },
+      {
+        "source_category": "Cheering",
+        "final_label": "crying_baby",
+        "count": 6
+      },
+      {
+        "source_category": "Gong",
+        "final_label": "fire_alarm",
+        "count": 6
+      },
+      {
+        "source_category": "Harp",
+        "final_label": "fire_alarm",
+        "count": 6
+      }
+    ]
+  }
+]

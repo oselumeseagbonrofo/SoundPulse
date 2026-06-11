@@ -13,9 +13,9 @@ import kotlin.math.sqrt
 
 class TinyCnnFeatureBuilder(
     private val config: PreprocessingConfig,
-    private val imageHeight: Int = 128,
-    private val imageWidth: Int = 128,
-    private val imageChannels: Int = 3,
+    private val imageHeight: Int = 96,
+    private val imageWidth: Int = 101,
+    private val imageChannels: Int = 1,
 ) {
     private val stft = config.stft
     private val mel = config.mel

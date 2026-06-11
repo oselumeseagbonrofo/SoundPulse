@@ -152,7 +152,20 @@ class ContextManager {
     required InferenceEvent event,
     required String activeMode,
     Map<String, dynamic>? userOverrides, // Custom overrides from class_config Hive box if any
+    bool enabled = true,
   }) {
+    if (!enabled) {
+      final String rawSlug = event.label;
+      final bool isBg = rawSlug == "background" || event.isBackground;
+      return AlertDecision(
+        classSlug: rawSlug,
+        priority: _defaultPriorities[rawSlug] ?? EventPriority.low,
+        modality: isBg ? AlertModality.none : (_defaultModalities[rawSlug] ?? AlertModality.silentLog),
+        confidence: event.confidence,
+        suppressed: isBg,
+        suppressionReason: isBg ? "Suppressed ambient background hum." : "",
+      );
+    }
     final String rawSlug = event.label;
     final double rawConfidence = event.confidence;
 
@@ -203,6 +216,14 @@ class ContextManager {
         }
       } else if (userOverrides["user_alert_modality"] != null) {
         modality = AlertModalityExtension.fromStr(userOverrides["user_alert_modality"] as String);
+      }
+
+      if (userOverrides["full_screen_alert"] == false) {
+        if (modality == AlertModality.criticalFullScreen) {
+          modality = AlertModality.vibrationFlashText;
+        }
+      } else if (userOverrides["full_screen_alert"] == true) {
+        modality = AlertModality.criticalFullScreen;
       }
     }
 

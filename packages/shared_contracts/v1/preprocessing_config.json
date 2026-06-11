@@ -3,22 +3,22 @@
   "audio": {
     "sample_rate_hz": 16000,
     "channels": 1,
-    "window_duration_ms": 982,
+    "window_duration_ms": 1000,
     "hop_duration_ms": 480,
     "pcm_dtype": "float32"
   },
   "stft": {
     "n_fft": 512,
     "hop_length": 160,
-    "win_length": 400,
+    "win_length": 480,
     "window": "hann",
     "center": false
   },
   "mel": {
-    "n_mels": 64,
-    "f_min_hz": 125,
-    "f_max_hz": 7500,
-    "power": 1.0,
+    "n_mels": 96,
+    "f_min_hz": 0,
+    "f_max_hz": 8000,
+    "power": 2.0,
     "log_offset": 0.001
   },
   "normalization": {

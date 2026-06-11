@@ -67,6 +67,6 @@ class PrototypeScorer(
             val delta = left[index] - right[index]
             sum += delta * delta
         }
-        return sum / length
+        return sum
     }
 }

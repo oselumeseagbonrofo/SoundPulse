@@ -32,6 +32,7 @@ class MultiBackboneEmbeddingExtractor(
 
 interface LiteRtInterpreter {
     fun run(input: Any, output: Any)
+    fun getInputShape(): IntArray
 }
 
 object LiteRtModelLoader {
@@ -58,7 +59,20 @@ class TinyCnnEmbeddingExtractor(
     preprocessing: PreprocessingConfig,
     private val embeddingDim: Int,
 ) : EmbeddingExtractor {
-    private val featureBuilder = TinyCnnFeatureBuilder(preprocessing)
+    private val featureBuilder: TinyCnnFeatureBuilder
+
+    init {
+        val shape = interpreter.getInputShape()
+        val height = if (shape.size >= 3) shape[1] else 96
+        val width = if (shape.size >= 3) shape[2] else 101
+        val channels = if (shape.size >= 4) shape[3] else 1
+        featureBuilder = TinyCnnFeatureBuilder(
+            config = preprocessing,
+            imageHeight = height,
+            imageWidth = width,
+            imageChannels = channels
+        )
+    }
 
     override fun extractEmbedding(preprocessedWindow: FloatArray): FloatArray {
         val output = FloatArray(embeddingDim)
@@ -101,6 +115,11 @@ private class ReflectionLiteRtInterpreter(
         allocateTensorsMethod = interpreterClass.getMethod("allocateTensors")
         tensorClass = Class.forName("org.tensorflow.lite.Tensor")
         shapeMethod = tensorClass.getMethod("shape")
+    }
+
+    override fun getInputShape(): IntArray {
+        val inputTensor = getInputTensorMethod.invoke(interpreterInstance, 0)
+        return shapeMethod.invoke(inputTensor) as IntArray
     }
 
     override fun run(input: Any, output: Any) {

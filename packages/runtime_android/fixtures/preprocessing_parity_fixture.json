@@ -1,10 +1,10 @@
 {
   "sample_rate_hz": 16000,
-  "window_duration_ms": 982,
-  "n_mels": 64,
+  "window_duration_ms": 1000,
+  "n_mels": 96,
   "n_fft": 512,
   "hop_length": 160,
-  "win_length": 400,
+  "win_length": 480,
   "expected_embedding_dims": {
     "tiny_cnn_dim": 1024,
     "yamnet_dim": 1024

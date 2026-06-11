@@ -1,0 +1,804 @@
+{
+  "protocol": "mobilenetv4_threshold_calibration_with_fsd50k_out_of_scope_unknowns",
+  "unknown_proxy": {
+    "calibration_dataset": "fsd50k_dev_out_of_scope",
+    "holdout_dataset": "fsd50k_eval_out_of_scope",
+    "calibration_support": 1024,
+    "holdout_support": 1024,
+    "calibration_unique_source_categories": 86,
+    "holdout_unique_source_categories": 93
+  },
+  "baseline_nearest_prototype": {
+    "known_test": {
+      "accuracy": 0.2328,
+      "macro_f1": 0.186,
+      "macro_recall": 0.2086,
+      "urgent_recall": 0.196,
+      "background_non_alert_rate": 0.0
+    }
+  },
+  "calibrated_thresholds": {
+    "version": "1.0.0-mobilenetv4-calibrated-fsd50k-2026-06-10",
+    "distance_threshold": 0.7941,
+    "loudness_floor_dbfs": -55.0,
+    "unknown_ratio_threshold": 0.9945,
+    "confidence_tiers": {
+      "high": 0.8,
+      "medium": 0.6,
+      "low": 0.4
+    },
+    "modes": {
+      "general": {
+        "distance_threshold_delta": 0.0,
+        "loudness_floor_delta_db": 0.0,
+        "suppressed_classes": []
+      },
+      "focus": {
+        "distance_threshold_delta": -30.72,
+        "loudness_floor_delta_db": 2.0,
+        "suppressed_classes": [
+          "dog_barking"
+        ]
+      },
+      "sleep": {
+        "distance_threshold_delta": -81.92,
+        "loudness_floor_delta_db": 4.0,
+        "suppressed_classes": [
+          "water_running",
+          "dog_barking",
+          "door_wood_creaking"
+        ]
+      }
+    }
+  },
+  "calibration_selection": {
+    "baseline_known_validation": {
+      "accuracy": 0.2563,
+      "macro_f1": 0.2369,
+      "macro_recall": 0.2464,
+      "urgent_recall": 0.2955,
+      "background_non_alert_rate": 0.0
+    },
+    "selection_tolerance": {
+      "macro_f1_drop": 0.02,
+      "urgent_recall_drop": 0.02
+    },
+    "hard_floor_urgent_recall": 0.1,
+    "hard_floor_macro_f1": 0.25,
+    "selected_candidate_id": 953,
+    "candidate_count": 960
+  },
+  "operating_points": [
+    {
+      "name": "selected_release_candidate",
+      "description": "Toleranced candidate that preserves known validation quality while improving rejection.",
+      "candidate_id": 953,
+      "thresholds": {
+        "distance_threshold": 0.7941,
+        "unknown_ratio_threshold": 0.9945,
+        "loudness_floor_dbfs": -55.0
+      },
+      "calibration_validation": {
+        "accuracy": 0.2386,
+        "macro_f1": 0.233,
+        "macro_recall": 0.2297,
+        "urgent_recall": 0.2877,
+        "background_non_alert_rate": 0.0
+      },
+      "unknown_calibration": {
+        "unknown_precision": 0.781,
+        "unknown_recall": 0.1045,
+        "unknown_non_alert_rate": 0.124,
+        "false_alert_rate": 0.876
+      },
+      "balanced_score": 0.2703,
+      "holdout_known_test": {
+        "accuracy": 0.2177,
+        "macro_f1": 0.1798,
+        "macro_recall": 0.1966,
+        "urgent_recall": 0.1804,
+        "background_non_alert_rate": 0.0
+      },
+      "holdout_open_set": {
+        "unknown_precision": 0.7447,
+        "unknown_recall": 0.1025,
+        "unknown_non_alert_rate": 0.1211,
+        "false_alert_rate": 0.8789
+      },
+      "known_test_label_breakdown": {
+        "background": 3,
+        "clock_alarm": 13,
+        "crying_baby": 86,
+        "dog_barking": 20,
+        "door_knock": 36,
+        "door_wood_creaking": 28,
+        "doorbell": 31,
+        "fire_alarm": 35,
+        "speech": 33,
+        "unknown": 36,
+        "water_running": 143
+      },
+      "unknown_holdout_label_breakdown": {
+        "background": 19,
+        "clock_alarm": 45,
+        "crying_baby": 143,
+        "dog_barking": 25,
+        "door_knock": 116,
+        "door_wood_creaking": 65,
+        "doorbell": 38,
+        "fire_alarm": 178,
+        "speech": 52,
+        "unknown": 105,
+        "water_running": 238
+      },
+      "top_unknown_false_alert_categories": [
+        {
+          "source_category": "Cowbell",
+          "final_label": "door_knock",
+          "count": 10
+        },
+        {
+          "source_category": "Fill_(with_liquid)",
+          "final_label": "water_running",
+          "count": 10
+        },
+        {
+          "source_category": "Car_passing_by",
+          "final_label": "water_running",
+          "count": 9
+        },
+        {
+          "source_category": "Fixed-wing_aircraft_and_airplane",
+          "final_label": "water_running",
+          "count": 9
+        },
+        {
+          "source_category": "Female_singing",
+          "final_label": "crying_baby",
+          "count": 8
+        },
+        {
+          "source_category": "Electric_guitar",
+          "final_label": "fire_alarm",
+          "count": 8
+        },
+        {
+          "source_category": "Hiss",
+          "final_label": "water_running",
+          "count": 7
+        },
+        {
+          "source_category": "Bass_drum",
+          "final_label": "door_knock",
+          "count": 7
+        },
+        {
+          "source_category": "Cheering",
+          "final_label": "crying_baby",
+          "count": 7
+        },
+        {
+          "source_category": "Chirp_and_tweet",
+          "final_label": "water_running",
+          "count": 7
+        },
+        {
+          "source_category": "Gull_and_seagull",
+          "final_label": "water_running",
+          "count": 7
+        },
+        {
+          "source_category": "Gurgling",
+          "final_label": "water_running",
+          "count": 7
+        },
+        {
+          "source_category": "Gong",
+          "final_label": "fire_alarm",
+          "count": 7
+        },
+        {
+          "source_category": "Boiling",
+          "final_label": "water_running",
+          "count": 6
+        },
+        {
+          "source_category": "Harp",
+          "final_label": "fire_alarm",
+          "count": 6
+        }
+      ]
+    },
+    {
+      "name": "best_balanced_score",
+      "description": "Highest overall calibration-stage balanced score.",
+      "candidate_id": 361,
+      "thresholds": {
+        "distance_threshold": 0.5909,
+        "unknown_ratio_threshold": 0.85,
+        "loudness_floor_dbfs": -60.0
+      },
+      "calibration_validation": {
+        "accuracy": 0.0508,
+        "macro_f1": 0.0833,
+        "macro_recall": 0.0585,
+        "urgent_recall": 0.0762,
+        "background_non_alert_rate": 0.0
+      },
+      "unknown_calibration": {
+        "unknown_precision": 0.724,
+        "unknown_recall": 0.8428,
+        "unknown_non_alert_rate": 0.8496,
+        "false_alert_rate": 0.1504
+      },
+      "balanced_score": 0.3358,
+      "holdout_known_test": {
+        "accuracy": 0.0647,
+        "macro_f1": 0.0742,
+        "macro_recall": 0.0536,
+        "urgent_recall": 0.0425,
+        "background_non_alert_rate": 0.0
+      },
+      "holdout_open_set": {
+        "unknown_precision": 0.6965,
+        "unknown_recall": 0.8428,
+        "unknown_non_alert_rate": 0.8486,
+        "false_alert_rate": 0.1514
+      },
+      "known_test_label_breakdown": {
+        "background": 1,
+        "clock_alarm": 2,
+        "crying_baby": 12,
+        "dog_barking": 1,
+        "door_knock": 15,
+        "doorbell": 5,
+        "fire_alarm": 2,
+        "unknown": 376,
+        "water_running": 50
+      },
+      "unknown_holdout_label_breakdown": {
+        "background": 6,
+        "clock_alarm": 3,
+        "crying_baby": 20,
+        "door_knock": 32,
+        "doorbell": 3,
+        "fire_alarm": 5,
+        "speech": 1,
+        "unknown": 863,
+        "water_running": 91
+      },
+      "top_unknown_false_alert_categories": [
+        {
+          "source_category": "Fill_(with_liquid)",
+          "final_label": "water_running",
+          "count": 8
+        },
+        {
+          "source_category": "Chirp_and_tweet",
+          "final_label": "water_running",
+          "count": 5
+        },
+        {
+          "source_category": "Bass_drum",
+          "final_label": "door_knock",
+          "count": 5
+        },
+        {
+          "source_category": "Cowbell",
+          "final_label": "door_knock",
+          "count": 5
+        },
+        {
+          "source_category": "Female_singing",
+          "final_label": "crying_baby",
+          "count": 4
+        },
+        {
+          "source_category": "Bird",
+          "final_label": "door_knock",
+          "count": 4
+        },
+        {
+          "source_category": "Fixed-wing_aircraft_and_airplane",
+          "final_label": "water_running",
+          "count": 3
+        },
+        {
+          "source_category": "Bus",
+          "final_label": "water_running",
+          "count": 3
+        },
+        {
+          "source_category": "Car_passing_by",
+          "final_label": "water_running",
+          "count": 3
+        },
+        {
+          "source_category": "Frog",
+          "final_label": "water_running",
+          "count": 3
+        },
+        {
+          "source_category": "Boiling",
+          "final_label": "water_running",
+          "count": 3
+        },
+        {
+          "source_category": "Hiss",
+          "final_label": "water_running",
+          "count": 3
+        },
+        {
+          "source_category": "Gurgling",
+          "final_label": "water_running",
+          "count": 3
+        },
+        {
+          "source_category": "Gull_and_seagull",
+          "final_label": "water_running",
+          "count": 3
+        },
+        {
+          "source_category": "Giggle",
+          "final_label": "crying_baby",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "name": "best_unknown_rejection",
+      "description": "Most aggressive unknown rejection while staying near the known-set baseline when possible.",
+      "candidate_id": 719,
+      "thresholds": {
+        "distance_threshold": 0.6747,
+        "unknown_ratio_threshold": 0.9945,
+        "loudness_floor_dbfs": -42.5
+      },
+      "calibration_validation": {
+        "accuracy": 0.1777,
+        "macro_f1": 0.1986,
+        "macro_recall": 0.1765,
+        "urgent_recall": 0.2524,
+        "background_non_alert_rate": 0.0
+      },
+      "unknown_calibration": {
+        "unknown_precision": 0.7714,
+        "unknown_recall": 0.2373,
+        "unknown_non_alert_rate": 0.3428,
+        "false_alert_rate": 0.6572
+      },
+      "balanced_score": 0.2843,
+      "holdout_known_test": {
+        "accuracy": 0.1918,
+        "macro_f1": 0.175,
+        "macro_recall": 0.1743,
+        "urgent_recall": 0.1574,
+        "background_non_alert_rate": 0.0
+      },
+      "holdout_open_set": {
+        "unknown_precision": 0.7347,
+        "unknown_recall": 0.2109,
+        "unknown_non_alert_rate": 0.3096,
+        "false_alert_rate": 0.6904
+      },
+      "known_test_label_breakdown": {
+        "background": 41,
+        "clock_alarm": 11,
+        "crying_baby": 61,
+        "dog_barking": 18,
+        "door_knock": 32,
+        "door_wood_creaking": 22,
+        "doorbell": 26,
+        "fire_alarm": 24,
+        "speech": 27,
+        "unknown": 78,
+        "water_running": 124
+      },
+      "unknown_holdout_label_breakdown": {
+        "background": 101,
+        "clock_alarm": 38,
+        "crying_baby": 110,
+        "dog_barking": 15,
+        "door_knock": 85,
+        "door_wood_creaking": 59,
+        "doorbell": 35,
+        "fire_alarm": 141,
+        "speech": 26,
+        "unknown": 216,
+        "water_running": 198
+      },
+      "top_unknown_false_alert_categories": [
+        {
+          "source_category": "Cowbell",
+          "final_label": "door_knock",
+          "count": 10
+        },
+        {
+          "source_category": "Fixed-wing_aircraft_and_airplane",
+          "final_label": "water_running",
+          "count": 9
+        },
+        {
+          "source_category": "Female_singing",
+          "final_label": "crying_baby",
+          "count": 8
+        },
+        {
+          "source_category": "Car_passing_by",
+          "final_label": "water_running",
+          "count": 8
+        },
+        {
+          "source_category": "Electric_guitar",
+          "final_label": "fire_alarm",
+          "count": 8
+        },
+        {
+          "source_category": "Chirp_and_tweet",
+          "final_label": "water_running",
+          "count": 7
+        },
+        {
+          "source_category": "Hiss",
+          "final_label": "water_running",
+          "count": 7
+        },
+        {
+          "source_category": "Fill_(with_liquid)",
+          "final_label": "water_running",
+          "count": 7
+        },
+        {
+          "source_category": "Gull_and_seagull",
+          "final_label": "water_running",
+          "count": 7
+        },
+        {
+          "source_category": "Bass_drum",
+          "final_label": "door_knock",
+          "count": 7
+        },
+        {
+          "source_category": "Human_group_actions",
+          "final_label": "water_running",
+          "count": 6
+        },
+        {
+          "source_category": "Bird_vocalization_and_bird_call_and_bird_song",
+          "final_label": "water_running",
+          "count": 6
+        },
+        {
+          "source_category": "Cheering",
+          "final_label": "crying_baby",
+          "count": 6
+        },
+        {
+          "source_category": "Gong",
+          "final_label": "fire_alarm",
+          "count": 6
+        },
+        {
+          "source_category": "Harp",
+          "final_label": "fire_alarm",
+          "count": 6
+        }
+      ]
+    }
+  ],
+  "selected_operating_point": "selected_release_candidate",
+  "holdout_evaluation": {
+    "known_test": {
+      "accuracy": 0.2177,
+      "macro_f1": 0.1798,
+      "macro_recall": 0.1966,
+      "urgent_recall": 0.1804,
+      "background_non_alert_rate": 0.0
+    },
+    "open_set_holdout": {
+      "unknown_precision": 0.7447,
+      "unknown_recall": 0.1025,
+      "unknown_non_alert_rate": 0.1211,
+      "false_alert_rate": 0.8789
+    },
+    "open_set_calibration": {
+      "unknown_precision": 0.781,
+      "unknown_recall": 0.1045,
+      "unknown_non_alert_rate": 0.124,
+      "false_alert_rate": 0.876
+    },
+    "known_test_label_breakdown": {
+      "background": 3,
+      "clock_alarm": 13,
+      "crying_baby": 86,
+      "dog_barking": 20,
+      "door_knock": 36,
+      "door_wood_creaking": 28,
+      "doorbell": 31,
+      "fire_alarm": 35,
+      "speech": 33,
+      "unknown": 36,
+      "water_running": 143
+    },
+    "unknown_holdout_label_breakdown": {
+      "background": 19,
+      "clock_alarm": 45,
+      "crying_baby": 143,
+      "dog_barking": 25,
+      "door_knock": 116,
+      "door_wood_creaking": 65,
+      "doorbell": 38,
+      "fire_alarm": 178,
+      "speech": 52,
+      "unknown": 105,
+      "water_running": 238
+    },
+    "top_unknown_false_alert_categories": [
+      {
+        "source_category": "Cowbell",
+        "final_label": "door_knock",
+        "count": 10
+      },
+      {
+        "source_category": "Fill_(with_liquid)",
+        "final_label": "water_running",
+        "count": 10
+      },
+      {
+        "source_category": "Car_passing_by",
+        "final_label": "water_running",
+        "count": 9
+      },
+      {
+        "source_category": "Fixed-wing_aircraft_and_airplane",
+        "final_label": "water_running",
+        "count": 9
+      },
+      {
+        "source_category": "Female_singing",
+        "final_label": "crying_baby",
+        "count": 8
+      },
+      {
+        "source_category": "Electric_guitar",
+        "final_label": "fire_alarm",
+        "count": 8
+      },
+      {
+        "source_category": "Hiss",
+        "final_label": "water_running",
+        "count": 7
+      },
+      {
+        "source_category": "Bass_drum",
+        "final_label": "door_knock",
+        "count": 7
+      },
+      {
+        "source_category": "Cheering",
+        "final_label": "crying_baby",
+        "count": 7
+      },
+      {
+        "source_category": "Chirp_and_tweet",
+        "final_label": "water_running",
+        "count": 7
+      },
+      {
+        "source_category": "Gull_and_seagull",
+        "final_label": "water_running",
+        "count": 7
+      },
+      {
+        "source_category": "Gurgling",
+        "final_label": "water_running",
+        "count": 7
+      },
+      {
+        "source_category": "Gong",
+        "final_label": "fire_alarm",
+        "count": 7
+      },
+      {
+        "source_category": "Boiling",
+        "final_label": "water_running",
+        "count": 6
+      },
+      {
+        "source_category": "Harp",
+        "final_label": "fire_alarm",
+        "count": 6
+      }
+    ]
+  },
+  "top_sweep_candidates": [
+    {
+      "candidate_id": 361,
+      "distance_threshold": 0.5909,
+      "unknown_ratio_threshold": 0.85,
+      "loudness_floor_dbfs": -60.0,
+      "balanced_score": 0.3358,
+      "known_validation_accuracy": 0.0508,
+      "known_validation_macro_f1": 0.0833,
+      "known_validation_macro_recall": 0.0585,
+      "known_validation_urgent_recall": 0.0762,
+      "known_validation_background_non_alert_rate": 0.0,
+      "unknown_calibration_unknown_precision": 0.724,
+      "unknown_calibration_unknown_recall": 0.8428,
+      "unknown_calibration_unknown_non_alert_rate": 0.8496,
+      "unknown_calibration_false_alert_rate": 0.1504,
+      "operating_point": "best_balanced_score",
+      "selected_release_candidate": false
+    },
+    {
+      "candidate_id": 481,
+      "distance_threshold": 0.6268,
+      "unknown_ratio_threshold": 0.85,
+      "loudness_floor_dbfs": -60.0,
+      "balanced_score": 0.3355,
+      "known_validation_accuracy": 0.0533,
+      "known_validation_macro_f1": 0.086,
+      "known_validation_macro_recall": 0.0605,
+      "known_validation_urgent_recall": 0.0813,
+      "known_validation_background_non_alert_rate": 0.0,
+      "unknown_calibration_unknown_precision": 0.7223,
+      "unknown_calibration_unknown_recall": 0.833,
+      "unknown_calibration_unknown_non_alert_rate": 0.8398,
+      "unknown_calibration_false_alert_rate": 0.1602,
+      "operating_point": "",
+      "selected_release_candidate": false
+    },
+    {
+      "candidate_id": 362,
+      "distance_threshold": 0.5909,
+      "unknown_ratio_threshold": 0.85,
+      "loudness_floor_dbfs": -58.5,
+      "balanced_score": 0.3348,
+      "known_validation_accuracy": 0.0508,
+      "known_validation_macro_f1": 0.0833,
+      "known_validation_macro_recall": 0.0585,
+      "known_validation_urgent_recall": 0.0762,
+      "known_validation_background_non_alert_rate": 0.0,
+      "unknown_calibration_unknown_precision": 0.7234,
+      "unknown_calibration_unknown_recall": 0.8379,
+      "unknown_calibration_unknown_non_alert_rate": 0.8496,
+      "unknown_calibration_false_alert_rate": 0.1504,
+      "operating_point": "",
+      "selected_release_candidate": false
+    },
+    {
+      "candidate_id": 482,
+      "distance_threshold": 0.6268,
+      "unknown_ratio_threshold": 0.85,
+      "loudness_floor_dbfs": -58.5,
+      "balanced_score": 0.3345,
+      "known_validation_accuracy": 0.0533,
+      "known_validation_macro_f1": 0.086,
+      "known_validation_macro_recall": 0.0605,
+      "known_validation_urgent_recall": 0.0813,
+      "known_validation_background_non_alert_rate": 0.0,
+      "unknown_calibration_unknown_precision": 0.7217,
+      "unknown_calibration_unknown_recall": 0.8281,
+      "unknown_calibration_unknown_non_alert_rate": 0.8398,
+      "unknown_calibration_false_alert_rate": 0.1602,
+      "operating_point": "",
+      "selected_release_candidate": false
+    },
+    {
+      "candidate_id": 363,
+      "distance_threshold": 0.5909,
+      "unknown_ratio_threshold": 0.85,
+      "loudness_floor_dbfs": -55.0,
+      "balanced_score": 0.3342,
+      "known_validation_accuracy": 0.0508,
+      "known_validation_macro_f1": 0.0833,
+      "known_validation_macro_recall": 0.0585,
+      "known_validation_urgent_recall": 0.0762,
+      "known_validation_background_non_alert_rate": 0.0,
+      "unknown_calibration_unknown_precision": 0.7237,
+      "unknown_calibration_unknown_recall": 0.834,
+      "unknown_calibration_unknown_non_alert_rate": 0.8535,
+      "unknown_calibration_false_alert_rate": 0.1465,
+      "operating_point": "",
+      "selected_release_candidate": false
+    },
+    {
+      "candidate_id": 483,
+      "distance_threshold": 0.6268,
+      "unknown_ratio_threshold": 0.85,
+      "loudness_floor_dbfs": -55.0,
+      "balanced_score": 0.334,
+      "known_validation_accuracy": 0.0533,
+      "known_validation_macro_f1": 0.086,
+      "known_validation_macro_recall": 0.0605,
+      "known_validation_urgent_recall": 0.0813,
+      "known_validation_background_non_alert_rate": 0.0,
+      "unknown_calibration_unknown_precision": 0.722,
+      "unknown_calibration_unknown_recall": 0.8242,
+      "unknown_calibration_unknown_non_alert_rate": 0.8438,
+      "unknown_calibration_false_alert_rate": 0.1562,
+      "operating_point": "",
+      "selected_release_candidate": false
+    },
+    {
+      "candidate_id": 241,
+      "distance_threshold": 0.561,
+      "unknown_ratio_threshold": 0.85,
+      "loudness_floor_dbfs": -60.0,
+      "balanced_score": 0.3332,
+      "known_validation_accuracy": 0.0457,
+      "known_validation_macro_f1": 0.078,
+      "known_validation_macro_recall": 0.0545,
+      "known_validation_urgent_recall": 0.0663,
+      "known_validation_background_non_alert_rate": 0.0,
+      "unknown_calibration_unknown_precision": 0.724,
+      "unknown_calibration_unknown_recall": 0.8506,
+      "unknown_calibration_unknown_non_alert_rate": 0.8574,
+      "unknown_calibration_false_alert_rate": 0.1426,
+      "operating_point": "",
+      "selected_release_candidate": false
+    },
+    {
+      "candidate_id": 364,
+      "distance_threshold": 0.5909,
+      "unknown_ratio_threshold": 0.85,
+      "loudness_floor_dbfs": -52.0,
+      "balanced_score": 0.333,
+      "known_validation_accuracy": 0.0508,
+      "known_validation_macro_f1": 0.0833,
+      "known_validation_macro_recall": 0.0585,
+      "known_validation_urgent_recall": 0.0762,
+      "known_validation_background_non_alert_rate": 0.0,
+      "unknown_calibration_unknown_precision": 0.7246,
+      "unknown_calibration_unknown_recall": 0.8271,
+      "unknown_calibration_unknown_non_alert_rate": 0.8555,
+      "unknown_calibration_false_alert_rate": 0.1445,
+      "operating_point": "",
+      "selected_release_candidate": false
+    },
+    {
+      "candidate_id": 721,
+      "distance_threshold": 0.7419,
+      "unknown_ratio_threshold": 0.85,
+      "loudness_floor_dbfs": -60.0,
+      "balanced_score": 0.3329,
+      "known_validation_accuracy": 0.0558,
+      "known_validation_macro_f1": 0.0881,
+      "known_validation_macro_recall": 0.0621,
+      "known_validation_urgent_recall": 0.0813,
+      "known_validation_background_non_alert_rate": 0.0,
+      "unknown_calibration_unknown_precision": 0.722,
+      "unknown_calibration_unknown_recall": 0.8193,
+      "unknown_calibration_unknown_non_alert_rate": 0.8262,
+      "unknown_calibration_false_alert_rate": 0.1738,
+      "operating_point": "",
+      "selected_release_candidate": false
+    },
+    {
+      "candidate_id": 601,
+      "distance_threshold": 0.6747,
+      "unknown_ratio_threshold": 0.85,
+      "loudness_floor_dbfs": -60.0,
+      "balanced_score": 0.3329,
+      "known_validation_accuracy": 0.0533,
+      "known_validation_macro_f1": 0.0852,
+      "known_validation_macro_recall": 0.0605,
+      "known_validation_urgent_recall": 0.0813,
+      "known_validation_background_non_alert_rate": 0.0,
+      "unknown_calibration_unknown_precision": 0.7214,
+      "unknown_calibration_unknown_recall": 0.8242,
+      "unknown_calibration_unknown_non_alert_rate": 0.8311,
+      "unknown_calibration_false_alert_rate": 0.1689,
+      "operating_point": "",
+      "selected_release_candidate": false
+    }
+  ],
+  "artifacts": {
+    "known_test_predictions": "ml/evaluation/mobilenetv4_known_test_calibrated_predictions.csv",
+    "unknown_holdout_predictions": "ml/evaluation/mobilenetv4_unknown_holdout_calibrated_predictions.csv",
+    "candidate_thresholds": "packages/shared_contracts/v1/tinycnn_threshold_defaults.json",
+    "threshold_sweep": "ml/evaluation/mobilenetv4_threshold_sweep.csv",
+    "operating_points": "ml/evaluation/mobilenetv4_threshold_operating_points.json",
+    "report": "ml/evaluation/mobilenetv4_threshold_calibration_report.md"
+  }
+}

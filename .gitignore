@@ -23,7 +23,12 @@ ml/*.egg-info/
 
 # Local datasets and generated artifacts
 ml/data/raw/
-ml/data/processed/
+ml/data/npy_fsd50k/
+ml/data/npy_fsd50k.zip
+ml/data/npy_fsd50k_eval.zip
+ml/data/npy_fsd50k_eval/
+ml/data/npy_fsd50k_eval_patches/
+ml/data/npy_fsd50k_dev_patches/
 ml/export/artifacts/generated/
 tooling/evaluation/results/
 

@@ -81,7 +81,7 @@ class MonitorLiveFeedTab extends StatelessWidget {
                 const SizedBox(height: 10),
                 Row(
                   children: <Widget>[
-                    _backboneChip("tiny_cnn", "TinyCNN (256-D)"),
+                    _backboneChip("tiny_cnn", "Tiny CNN (1024-D)"),
                     const SizedBox(width: 8),
                     _backboneChip("yamnet", "YAMNet (1024-D)"),
                   ],

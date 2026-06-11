@@ -33,16 +33,16 @@ data class PreprocessingConfig(
 data class StftConfig(
     val nFft: Int = 512,
     val hopLength: Int = 160,
-    val winLength: Int = 400,
+    val winLength: Int = 480,
     val window: String = "hann",
     val center: Boolean = false,
 )
 
 data class MelConfig(
-    val nMels: Int = 64,
-    val fMinHz: Float = 125f,
-    val fMaxHz: Float = 7500f,
-    val power: Float = 1f,
+    val nMels: Int = 96,
+    val fMinHz: Float = 0f,
+    val fMaxHz: Float = 8000f,
+    val power: Float = 2f,
     val logOffset: Float = 0.001f,
 )
 

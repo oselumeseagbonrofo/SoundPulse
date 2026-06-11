@@ -17,6 +17,7 @@ import "monitor_live_feed_tab.dart";
 import "monitor_record_tab.dart";
 import "monitor_settings_tab.dart";
 import "monitor_style.dart";
+import "critical_alert_view.dart";
 import "../services/context_manager.dart";
 
 class MonitorPage extends StatefulWidget {
@@ -43,6 +44,7 @@ class _MonitorPageState extends State<MonitorPage> with WidgetsBindingObserver {
   String _mode = "general";
   String _backbone = "yamnet";
   String _personalisationLevel = "default";
+  String? _activeCriticalAlert;
   int _tabIndex = 0;
   int _previousTabIndex = 0;
   bool _vibrationEnabled = false;
@@ -76,9 +78,32 @@ class _MonitorPageState extends State<MonitorPage> with WidgetsBindingObserver {
     _historyCleanupTimer = Timer.periodic(const Duration(minutes: 5), (_) {
       _cleanupAndSortHistory();
     });
+
+    _runtimeBridge.setCriticalAlertListener((String sound) {
+      _showCriticalAlert(sound);
+    });
+  }
+
+  void _showCriticalAlert(String soundLabel) {
+    if (!mounted || _activeCriticalAlert != null) {
+      return;
+    }
+    setState(() {
+      _activeCriticalAlert = soundLabel;
+    });
   }
 
   Future<void> _loadPreferences() async {
+    try {
+      final String? activeAlert = await _runtimeBridge.getActiveCriticalAlert();
+      if (activeAlert != null) {
+        await _runtimeBridge.clearActiveCriticalAlert();
+        setState(() {
+          _activeCriticalAlert = activeAlert;
+        });
+      }
+    } catch (_) {}
+
     String storedMode = "general";
     String storedBackbone = "yamnet";
     String storedPersonalisationLevel = "default";
@@ -322,6 +347,7 @@ class _MonitorPageState extends State<MonitorPage> with WidgetsBindingObserver {
             event: evaluatedEvent,
             activeMode: _mode,
             userOverrides: userOverrides,
+            enabled: _contextAware,
           );
 
           // Dispatch visual and haptic modalities if NOT suppressed
@@ -352,6 +378,7 @@ class _MonitorPageState extends State<MonitorPage> with WidgetsBindingObserver {
                 ));
                 // Critical alert continuous bypass haptic cues: uses long and strobe flash for absolute safety
                 unawaited(_triggerCustomAlertEffects("long", "strobe"));
+                _showCriticalAlert(candidateLabel!);
                 break;
             }
           }
@@ -1085,6 +1112,17 @@ class _MonitorPageState extends State<MonitorPage> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
+    if (_activeCriticalAlert != null) {
+      return CriticalAlertView(
+        soundLabel: _activeCriticalAlert!,
+        onDismiss: () {
+          setState(() {
+            _activeCriticalAlert = null;
+          });
+        },
+      );
+    }
+
     return Scaffold(
       backgroundColor: monitorSurface,
       body: Column(

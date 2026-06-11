@@ -178,6 +178,26 @@ class LocalStorageService {
     return box?.get(_personalisationLevelKey, defaultValue: "default") as String? ?? "default";
   }
 
+  Future<void> saveLastBatteryTest({required double drainRate, required double projectedHours}) async {
+    final box = _settingsBox();
+    await box?.put("soundpulse.last_battery_drain", drainRate);
+    await box?.put("soundpulse.last_battery_projected", projectedHours);
+  }
+
+  Future<Map<String, double>?> readLastBatteryTest() async {
+    final box = _settingsBox();
+    final drain = box?.get("soundpulse.last_battery_drain");
+    final proj = box?.get("soundpulse.last_battery_projected");
+    if (drain is double && proj is double) {
+      return <String, double>{
+        "drain_rate": drain,
+        "projected_hours": proj,
+      };
+    }
+    return null;
+  }
+
+
   // ----------------------------------------------------
   // Box 2: Class Config (soundpulse.class_config)
   // ----------------------------------------------------

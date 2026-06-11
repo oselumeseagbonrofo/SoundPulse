@@ -32,6 +32,8 @@ private class FakeEmbeddingExtractor(
 private class FakeLiteRtInterpreter : LiteRtInterpreter {
     var lastInput: Any? = null
 
+    override fun getInputShape(): IntArray = intArrayOf(1, 96, 101, 1)
+
     override fun run(input: Any, output: Any) {
         lastInput = input
         val outputArray = output as FloatArray
@@ -104,11 +106,9 @@ private fun testTinyCnnFeatureBuilder() {
 
     val tensor = builder.buildImageTensor(samples)
     Assert.that(tensor.size == 1, "TinyCNN tensor batch dimension mismatch")
-    Assert.that(tensor[0].size == 128, "TinyCNN tensor height mismatch")
-    Assert.that(tensor[0][0].size == 128, "TinyCNN tensor width mismatch")
-    Assert.that(tensor[0][0][0].size == 3, "TinyCNN tensor channel mismatch")
-    Assert.near(tensor[0][7][9][0], tensor[0][7][9][1], 0f, "TinyCNN RGB channel 0/1 mismatch")
-    Assert.near(tensor[0][7][9][1], tensor[0][7][9][2], 0f, "TinyCNN RGB channel 1/2 mismatch")
+    Assert.that(tensor[0].size == 96, "TinyCNN tensor height mismatch")
+    Assert.that(tensor[0][0].size == 101, "TinyCNN tensor width mismatch")
+    Assert.that(tensor[0][0][0].size == 1, "TinyCNN tensor channel mismatch")
 
     val flat = builder.buildFlatImage(samples)
     var sum = 0.0
@@ -124,23 +124,23 @@ private fun testTinyCnnFeatureBuilder() {
     Assert.near(mean.toFloat(), 0f, 0.05f, "TinyCNN standardized sine mean")
     Assert.near(kotlin.math.sqrt(variance).toFloat(), 1f, 0.05f, "TinyCNN standardized sine stddev")
 
-    val anchorIndices = intArrayOf(0, 819, 1638, 2457, 3276, 4095, 4914, 5733)
+    val anchorIndices = intArrayOf(0, 500, 1000, 1500, 2000, 3000, 4000, 5000)
     val referenceAnchors =
         floatArrayOf(
-            0.15895866f,
-            0.47769502f,
-            0.63189465f,
-            0.85572034f,
-            1.995531f,
-            3.215053f,
-            3.5251842f,
-            3.5320544f,
+            -0.3368011f,
+            -0.26583502f,
+            0.7662022f,
+            4.1306567f,
+            0.36138022f,
+            -0.33906585f,
+            -0.3390998f,
+            -0.33915687f,
         )
     for (index in anchorIndices.indices) {
         Assert.near(
             flat[anchorIndices[index]],
             referenceAnchors[index],
-            0.35f,
+            1e-4f,
             "TinyCNN sine anchor ${anchorIndices[index]}",
         )
     }
@@ -151,7 +151,7 @@ private fun testTinyCnnFeatureBuilder() {
     }
 
     val shortFeature = builder.buildFlatImage(floatArrayOf(0.25f, -0.25f))
-    Assert.that(shortFeature.size == 128 * 128 * 3, "Short TinyCNN feature should be padded to fixed image size")
+    Assert.that(shortFeature.size == 96 * 101 * 1, "Short TinyCNN feature should be padded to fixed image size")
 }
 
 private fun testTinyCnnEmbeddingExtractor() {
@@ -280,11 +280,11 @@ private fun tinyCnnTestConfig(): PreprocessingConfig =
     PreprocessingConfig(
         sampleRateHz = 16000,
         channels = 1,
-        windowDurationMs = 982,
+        windowDurationMs = 1000,
         hopDurationMs = 480,
         tinyCnnEmbeddingDim = 1024,
         yamnetEmbeddingDim = 1024,
-        stft = StftConfig(nFft = 512, hopLength = 160, winLength = 400, window = "hann", center = false),
-        mel = MelConfig(nMels = 64, fMinHz = 125f, fMaxHz = 7500f, power = 1f, logOffset = 0.001f),
+        stft = StftConfig(nFft = 512, hopLength = 160, winLength = 480, window = "hann", center = false),
+        mel = MelConfig(nMels = 96, fMinHz = 0f, fMaxHz = 8000f, power = 2f, logOffset = 0.001f),
         normalization = NormalizationConfig(type = "log_mel", clipMinDb = -80f, clipMaxDb = 0f),
     )

@@ -20,13 +20,18 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
-import com.soundpulse.runtime.InferenceResult
+import com.soundpulse.runtime.*
+import android.os.Bundle
+import android.view.WindowManager
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
+    private var methodChannel: MethodChannel? = null
+    private var activeCriticalAlertSound: String? = null
+
     private val methodChannelName = "soundpulse.runtime/methods"
     private val eventChannelName = "soundpulse.runtime/events"
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -98,13 +103,60 @@ class MainActivity : FlutterActivity() {
         super.onStop()
     }
 
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        handleCriticalAlertIntent(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleCriticalAlertIntent(intent)
+    }
+
+    private fun handleCriticalAlertIntent(intent: Intent?) {
+        if (intent == null) return
+        if (intent.getBooleanExtra("critical_alert_triggered", false)) {
+            val soundLabel = intent.getStringExtra("alert_sound_label") ?: "Urgent Sound"
+            activeCriticalAlertSound = soundLabel
+            
+            // Wake screen and show over lock screen
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+                setShowWhenLocked(true)
+                setTurnScreenOn(true)
+            } else {
+                @Suppress("DEPRECATION")
+                window.addFlags(
+                    WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
+                    WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or
+                    WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+                )
+            }
+
+            // Send to Flutter UI immediately if method channel is ready
+            mainHandler.post {
+                methodChannel?.invokeMethod("onCriticalAlertReceived", mapOf("sound" to soundLabel))
+            }
+        }
+    }
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         createNotificationChannel()
 
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, methodChannelName)
-            .setMethodCallHandler { call, result ->
+        val channel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, methodChannelName)
+        methodChannel = channel
+        channel.setMethodCallHandler { call, result ->
                 when (call.method) {
+                    "getActiveCriticalAlert" -> {
+                        result.success(activeCriticalAlertSound)
+                    }
+
+                    "clearActiveCriticalAlert" -> {
+                        activeCriticalAlertSound = null
+                        result.success(null)
+                    }
+
                     "startMonitoring" -> {
                         val activeModeStr = call.argument<String>("mode") ?: "general"
                         val backbone = call.argument<String>("backbone") ?: "tiny_cnn"
@@ -283,6 +335,44 @@ class MainActivity : FlutterActivity() {
                         } else {
                             result.success(true)
                         }
+                    }
+
+                    "getBatteryLevel" -> {
+                        result.success(getBatteryLevel())
+                    }
+
+                    "runOnDeviceBenchmark" -> {
+                        val backbone = call.argument<String>("backbone") ?: "tiny_cnn"
+                        val modelPath = call.argument<String>("modelPath")
+                        val classLabelsPath = call.argument<String>("classLabelsPath")
+                        val preprocessingConfigPath = call.argument<String>("preprocessingConfigPath")
+                        val thresholdDefaultsPath = call.argument<String>("thresholdDefaultsPath")
+                        val prototypeStorePath = call.argument<String>("prototypeStorePath")
+                        val samplesList = call.argument<List<List<Number>>>("samplesList").orEmpty()
+                        val labelsList = call.argument<List<String>>("labelsList").orEmpty()
+
+                        Thread {
+                            try {
+                                val engine = soundService?.getRuntimeEngine() ?: run {
+                                    if (modelPath == null || classLabelsPath == null || preprocessingConfigPath == null ||
+                                        thresholdDefaultsPath == null || prototypeStorePath == null) {
+                                        throw Exception("Engine files not provided and service is not running.")
+                                    }
+                                    initializeTempEngine(
+                                        backbone, modelPath, classLabelsPath, preprocessingConfigPath,
+                                        thresholdDefaultsPath, prototypeStorePath
+                                    )
+                                }
+                                val report = runBenchmark(engine, samplesList, labelsList)
+                                mainHandler.post {
+                                    result.success(report)
+                                }
+                            } catch (e: java.lang.Exception) {
+                                mainHandler.post {
+                                    result.error("benchmark_failed", e.message ?: "Benchmark execution failed.", null)
+                                }
+                            }
+                        }.start()
                     }
 
                     else -> result.notImplemented()
@@ -586,6 +676,132 @@ class MainActivity : FlutterActivity() {
         } catch (e: Exception) {
             // Ignore camera flash errors
         }
+    }
+
+    private fun getBatteryLevel(): Int {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            val bm = getSystemService(Context.BATTERY_SERVICE) as? android.os.BatteryManager
+            return bm?.getIntProperty(android.os.BatteryManager.BATTERY_PROPERTY_CAPACITY) ?: -1
+        } else {
+            val intent = registerReceiver(null, android.content.IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+            val level = intent?.getIntExtra(android.os.BatteryManager.EXTRA_LEVEL, -1) ?: -1
+            val scale = intent?.getIntExtra(android.os.BatteryManager.EXTRA_SCALE, -1) ?: -1
+            return if (level >= 0 && scale > 0) (level * 100) / scale else -1
+        }
+    }
+
+    private fun runBenchmark(
+        engine: com.soundpulse.runtime.RuntimeEngine,
+        samplesList: List<List<Number>>,
+        labelsList: List<String>
+    ): Map<String, Any> {
+        val overallLatencies = mutableListOf<Double>()
+        val inferenceLatencies = mutableListOf<Double>()
+        val predictions = mutableListOf<Map<String, Any?>>()
+
+        val runtime = Runtime.getRuntime()
+        runtime.gc()
+        val memBefore = runtime.totalMemory() - runtime.freeMemory()
+
+        val cpuStart = android.os.SystemClock.currentThreadTimeMillis()
+
+        if (samplesList.isNotEmpty()) {
+            val warmUpSamples = FloatArray(samplesList[0].size) { index -> samplesList[0][index].toFloat() }
+            for (i in 0 until 5) {
+                engine.inferWindow(warmUpSamples)
+            }
+        }
+
+        for (i in samplesList.indices) {
+            val rawSamples = samplesList[i]
+            val samples = FloatArray(rawSamples.size) { index -> rawSamples[index].toFloat() }
+            val trueLabel = labelsList.getOrElse(i) { "unknown" }
+
+            val startOverall = System.nanoTime()
+            val inferenceResult = engine.inferWindow(samples)
+            val endOverall = System.nanoTime()
+            val overallMs = (endOverall - startOverall) / 1_000_000.0
+            overallLatencies.add(overallMs)
+
+            val startInference = System.nanoTime()
+            val embedding = engine.extractEmbedding(samples)
+            val endInference = System.nanoTime()
+            val inferenceMs = (endInference - startInference) / 1_000_000.0
+            inferenceLatencies.add(inferenceMs)
+
+            predictions.add(mapOf(
+                "true_label" to trueLabel,
+                "predicted_label" to inferenceResult.label,
+                "distance" to inferenceResult.distance.toDouble(),
+                "confidence" to inferenceResult.confidence.toDouble(),
+                "confidence_tier" to inferenceResult.confidenceTier,
+                "is_unknown" to inferenceResult.flags.isUnknown,
+                "is_background" to inferenceResult.flags.isBackground,
+                "speech_pitch_required" to inferenceResult.flags.speechPitchRequired,
+                "f0_hz" to inferenceResult.speechPitch?.f0Hz?.toDouble(),
+                "pitch_bucket" to inferenceResult.speechPitch?.bucket
+            ))
+        }
+
+        val cpuEnd = android.os.SystemClock.currentThreadTimeMillis()
+        val cpuTimeMs = cpuEnd - cpuStart
+
+        runtime.gc()
+        val memAfter = runtime.totalMemory() - runtime.freeMemory()
+        val memoryUsedBytes = if (memAfter > memBefore) memAfter - memBefore else 0L
+
+        return mapOf(
+            "overall_latencies" to overallLatencies,
+            "inference_latencies" to inferenceLatencies,
+            "cpu_time_ms" to cpuTimeMs.toDouble(),
+            "memory_used_bytes" to memoryUsedBytes.toDouble(),
+            "predictions" to predictions
+        )
+    }
+
+    private fun initializeTempEngine(
+        backbone: String,
+        modelPath: String,
+        classLabelsPath: String,
+        preprocessingConfigPath: String,
+        thresholdDefaultsPath: String,
+        prototypeStorePath: String
+    ): com.soundpulse.runtime.RuntimeEngine {
+        val classFile = java.io.File(classLabelsPath)
+        val preprocessingFile = java.io.File(preprocessingConfigPath)
+        val thresholdFile = java.io.File(thresholdDefaultsPath)
+        val prototypeFile = java.io.File(prototypeStorePath)
+        val modelFile = java.io.File(modelPath)
+
+        if (!classFile.exists() || !preprocessingFile.exists() || !thresholdFile.exists() || !prototypeFile.exists()) {
+            throw Exception("Missing configuration files.")
+        }
+        if (!modelFile.exists()) {
+            throw Exception("Missing model file.")
+        }
+
+        val artifacts = com.soundpulse.runtime.RuntimeArtifactLoader.fromFiles(
+            classFile,
+            preprocessingFile,
+            thresholdFile,
+            prototypeFile
+        )
+        val interpreter = com.soundpulse.runtime.LiteRtModelLoader.loadInterpreter(modelFile)
+        val activeBackbone = if (backbone.lowercase() == "yamnet") {
+            com.soundpulse.runtime.RuntimeBackbone.YAMNET
+        } else {
+            com.soundpulse.runtime.RuntimeBackbone.TINY_CNN
+        }
+        val extractor = if (activeBackbone == com.soundpulse.runtime.RuntimeBackbone.YAMNET) {
+            com.soundpulse.runtime.LiteRtEmbeddingExtractor(interpreter, artifacts.preprocessing.yamnetEmbeddingDim)
+        } else {
+            com.soundpulse.runtime.TinyCnnEmbeddingExtractor(
+                interpreter,
+                artifacts.preprocessing,
+                artifacts.preprocessing.tinyCnnEmbeddingDim
+            )
+        }
+        return com.soundpulse.runtime.LiteRtRuntimeFactory.createFromArtifacts(artifacts, extractor)
     }
 
 }
