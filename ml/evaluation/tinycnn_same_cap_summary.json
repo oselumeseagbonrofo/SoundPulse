@@ -1,5 +1,6 @@
 {
   "model_name": "tinycnn",
+  "display_name": "TinyCNN",
   "protocol": "shared_prototype_eval_same_cap",
   "shared_caps": {
     "train": 128,

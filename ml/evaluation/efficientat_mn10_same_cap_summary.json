@@ -1,0 +1,33 @@
+{
+  "model_name": "efficientat_mn10",
+  "display_name": "EfficientAT (mn10)",
+  "protocol": "shared_prototype_eval_same_cap",
+  "shared_caps": {
+    "train": 128,
+    "validation": 64,
+    "test": 64
+  },
+  "test_support": 510,
+  "aggregate_metrics": {
+    "accuracy": 0.4549,
+    "macro_precision": 0.6288,
+    "macro_recall": 0.4959,
+    "macro_f1": 0.4898,
+    "weighted_precision": 0.625,
+    "weighted_recall": 0.4549,
+    "weighted_f1": 0.4673
+  },
+  "per_class_recall": {
+    "fire_alarm": 0.5455,
+    "clock_alarm": 1.0,
+    "door_knock": 0.4375,
+    "doorbell": 0.2353,
+    "crying_baby": 0.3846,
+    "water_running": 0.625,
+    "dog_barking": 0.1562,
+    "door_wood_creaking": 0.4375,
+    "speech": 0.3594,
+    "background": 0.7778
+  },
+  "predictions_path": "ml\\evaluation\\efficientat_mn10_same_cap_predictions.csv"
+}

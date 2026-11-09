@@ -1,0 +1,33 @@
+{
+  "model_name": "panns_mobilenetv1",
+  "display_name": "PANNs MobileNetV1",
+  "protocol": "shared_prototype_eval_same_cap",
+  "shared_caps": {
+    "train": 128,
+    "validation": 64,
+    "test": 64
+  },
+  "test_support": 510,
+  "aggregate_metrics": {
+    "accuracy": 0.7686,
+    "macro_precision": 0.776,
+    "macro_recall": 0.7738,
+    "macro_f1": 0.7568,
+    "weighted_precision": 0.8039,
+    "weighted_recall": 0.7686,
+    "weighted_f1": 0.7733
+  },
+  "per_class_recall": {
+    "fire_alarm": 0.7455,
+    "clock_alarm": 0.875,
+    "door_knock": 0.8438,
+    "doorbell": 0.5882,
+    "crying_baby": 0.8462,
+    "water_running": 0.8594,
+    "dog_barking": 0.7188,
+    "door_wood_creaking": 0.8438,
+    "speech": 0.5469,
+    "background": 0.8704
+  },
+  "predictions_path": "ml\\evaluation\\panns_mobilenetv1_same_cap_predictions.csv"
+}
