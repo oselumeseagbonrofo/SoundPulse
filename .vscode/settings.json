@@ -14,5 +14,6 @@
         "**/export/**": true,
         "**/.venv/**": true
     },
-    "explorer.autoReveal": false
+    "explorer.autoReveal": false,
+    "python-envs.defaultEnvManager": "ms-python.python:venv"
 }

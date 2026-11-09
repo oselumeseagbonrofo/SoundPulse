@@ -205,23 +205,5 @@ class RuntimeBridge {
     return await _methods.invokeMethod<int>("getBatteryLevel") ?? -1;
   }
 
-  Future<Map<String, dynamic>> runOnDeviceBenchmark({
-    required String backbone,
-    required List<List<double>> samplesList,
-    required List<String> labelsList,
-  }) async {
-    final Map<String, dynamic> args = await _runtimeAssetArgs(backbone);
-    args["samplesList"] = samplesList;
-    args["labelsList"] = labelsList;
-
-    final response = await _methods.invokeMethod<Map<dynamic, dynamic>>(
-      "runOnDeviceBenchmark",
-      args,
-    );
-    if (response == null) {
-      return const <String, dynamic>{};
-    }
-    return Map<String, dynamic>.from(response);
-  }
 }
 

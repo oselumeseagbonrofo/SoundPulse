@@ -1,0 +1,25 @@
+{
+    "typescript.updateImportsOnFileMove.enabled": "never",
+    "javascript.updateImportsOnFileMove.enabled": "never",
+    "files.watcherExclude": {
+        "**/node_modules/**": true,
+        "**/android/**": true,
+        "**/ios/**": true,
+        "**/.expo/**": true,
+        "**/dist/**": true,
+        "**/build/**": true,
+        "**/coverage/**": true,
+        "**/ml/data/": true
+    },
+    "search.exclude": {
+        "**/node_modules/**": true,
+        "**/.expo/**": true,
+        "**/dist/**": true,
+        "**/build/**": true,
+        "**/coverage/**": true,
+        "**/ml/data/": true
+    },
+    "typescript.tsserver.maxTsServerMemory": 4096,
+    "typescript.tsserver.experimental.enableProjectDiagnostics": false,
+    "editor.semanticHighlighting.enabled": false
+}

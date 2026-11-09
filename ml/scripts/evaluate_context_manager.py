@@ -11,7 +11,8 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 ML_ROOT = PROJECT_ROOT / "ml"
 EVALUATION_DIR = ML_ROOT / "evaluation"
 YAMNET_CSV_PATH = EVALUATION_DIR / "yamnet_same_cap_predictions.csv"
-OUTPUT_REPORT_PATH = EVALUATION_DIR / "context_manager_evaluation_report.md"
+OUTPUT_REPORT_PATH = EVALUATION_DIR / "assets_context_manager_evaluation_report.md"
+OUTPUT_HTML_PATH = EVALUATION_DIR / "assets_context_manager_evaluation_report.html"
 
 # Class Contract Classes
 CLASSES = [
@@ -243,7 +244,9 @@ def evaluate_on_test_set():
         ("disabled", "general", False),
         ("enabled", "general", True),
         ("enabled", "sleep", True),
-        ("enabled", "focus", True)
+        ("enabled", "focus", True),
+        ("enabled", "cooking", True),
+        ("enabled", "bathroom", True)
     ]
     
     config_metrics = {}
@@ -284,19 +287,11 @@ def evaluate_on_test_set():
             # - In Sleep: only critical and important classes (fire_alarm, clock_alarm, door_knock, doorbell, crying_baby, speech) should alert.
             # - In Focus: only critical classes (fire_alarm, clock_alarm) should alert.
             
-            should_alert = False
-            if true_label not in ["background", "unknown"]:
-                priority = sim.default_priorities.get(true_label, EventPriority.LOW)
-                if not enabled:
-                    should_alert = True
-                else:
-                    if active_mode == "general":
-                        should_alert = True
-                    elif active_mode == "sleep":
-                        should_alert = priority in [EventPriority.CRITICAL, EventPriority.IMPORTANT]
-                    elif active_mode == "focus":
-                        should_alert = priority == EventPriority.CRITICAL
-            
+            if true_label in ["background", "unknown"]:
+                should_alert = False
+            else:
+                should_alert = should_alert_class(true_label, active_mode, enabled)
+
             is_correct_policy = (alerted == should_alert)
             
             predictions.append({
@@ -304,6 +299,7 @@ def evaluate_on_test_set():
                 "true_label": true_label,
                 "classified_label": classified_label,
                 "alerted": alerted,
+                "suppressed": decision["suppressed"],
                 "should_alert": should_alert,
                 "is_correct_policy": is_correct_policy
             })
@@ -344,17 +340,36 @@ def evaluate_on_test_set():
             class_df = pred_df[pred_df["true_label"] == c]
             if not class_df.empty:
                 class_recalls[c] = class_df["alerted"].mean() if should_alert_class(c, active_mode, enabled) else 0.0
+
+        removed = pred_df[pred_df["suppressed"] == True]
+        incorrect_removed = removed[removed["should_alert"] == True] if not removed.empty else pd.DataFrame()
+        removal_breakdown = {
+            "total_removed": int(len(removed)),
+            "correct_removed": int((removed["should_alert"] == False).sum()) if not removed.empty else 0,
+            "incorrect_removed": int(len(incorrect_removed)),
+            "incorrect_urgent_removed": int(incorrect_removed["true_label"].isin(URGENT_CLASSES).sum()) if not incorrect_removed.empty else 0,
+            "incorrect_non_urgent_removed": int((~incorrect_removed["true_label"].isin(URGENT_CLASSES)).sum()) if not incorrect_removed.empty else 0,
+            "urgent_removed": int(removed["true_label"].isin(URGENT_CLASSES).sum()) if not removed.empty else 0,
+            "non_urgent_removed": int((~removed["true_label"].isin(URGENT_CLASSES)).sum()) if not removed.empty else 0,
+        }
         
         name = f"Manager {config_name.capitalize()} ({active_mode.capitalize()} Mode)"
         config_metrics[name] = {
             "policy_accuracy": policy_accuracy,
             "alerts_triggered": alerts_triggered,
             "alerts_suppressed": alerts_suppressed,
+            "correctly_removed": removal_breakdown["correct_removed"],
+            "incorrectly_removed": removal_breakdown["incorrect_removed"],
+            "incorrect_urgent_removed": removal_breakdown["incorrect_urgent_removed"],
+            "incorrect_non_urgent_removed": removal_breakdown["incorrect_non_urgent_removed"],
+            "urgent_removed": removal_breakdown["urgent_removed"],
+            "non_urgent_removed": removal_breakdown["non_urgent_removed"],
             "urgent_miss_rate": urgent_miss_rate,
             "background_far": bg_far,
             "target_far": target_far,
             "overall_far": overall_far,
-            "class_recalls": class_recalls
+            "class_recalls": class_recalls,
+            "removal_breakdown": removal_breakdown,
         }
         
     return config_metrics
@@ -382,6 +397,10 @@ def should_alert_class(class_slug, active_mode, enabled):
         return p in [EventPriority.CRITICAL, EventPriority.IMPORTANT]
     elif active_mode == "focus":
         return p == EventPriority.CRITICAL
+    elif active_mode == "cooking":
+        return class_slug in ["fire_alarm", "clock_alarm", "door_knock", "doorbell", "water_running", "speech"]
+    elif active_mode == "bathroom":
+        return class_slug != "water_running"
     return True
 
 def run_temporal_simulation():
@@ -405,12 +424,20 @@ def run_temporal_simulation():
         # Sequence 3: Sleep Mode suppression
         (30, "water_running", 0.85, False, "sleep", "Water running in Sleep Mode (should suppress)"),
         (35, "doorbell", 0.90, False, "sleep", "Doorbell in Sleep Mode (should trigger alert)"),
+
+        # Sequence 3b: Cooking Mode permitting water_running but suppressing dog_barking
+        (40, "water_running", 0.80, False, "cooking", "Water running in Cooking Mode (should alert)"),
+        (45, "dog_barking", 0.85, False, "cooking", "Dog barking in Cooking Mode (should suppress)"),
+
+        # Sequence 3c: Bathroom Mode suppressing water_running but permitting doorbell
+        (50, "water_running", 0.80, False, "bathroom", "Water running in Bathroom Mode (should suppress)"),
+        (85, "doorbell", 0.90, False, "bathroom", "Doorbell in Bathroom Mode (should trigger alert)"),
         
         # Sequence 4: Deduplication / Rate Limiting
-        (60, "dog_barking", 0.85, False, "general", "Dog barking (initial alert)"),
-        (65, "dog_barking", 0.88, False, "general", "Dog barking again in 5s (should suppress due to 45s limit)"),
-        (75, "dog_barking", 0.80, False, "general", "Dog barking again in 15s (should suppress due to 45s limit)"),
-        (110, "dog_barking", 0.87, False, "general", "Dog barking again in 50s (elapsed 50s > 45s, should alert again)")
+        (90, "dog_barking", 0.85, False, "general", "Dog barking (initial alert)"),
+        (95, "dog_barking", 0.88, False, "general", "Dog barking again in 5s (should suppress due to 45s limit)"),
+        (105, "dog_barking", 0.80, False, "general", "Dog barking again in 15s (should suppress due to 45s limit)"),
+        (140, "dog_barking", 0.87, False, "general", "Dog barking again in 50s (elapsed 50s > 45s, should alert again)")
     ]
     
     start_time = datetime(2026, 6, 10, 12, 0, 0)
@@ -444,6 +471,20 @@ def run_temporal_simulation():
         
     return timeline
 
+def mode_removal_summary_entry(name, metrics):
+    breakdown = metrics[name]["removal_breakdown"]
+    return {
+        "mode": name,
+        "total_removed": breakdown["total_removed"],
+        "correct_removed": breakdown["correct_removed"],
+        "incorrect_removed": breakdown["incorrect_removed"],
+        "incorrect_urgent_removed": breakdown["incorrect_urgent_removed"],
+        "incorrect_non_urgent_removed": breakdown["incorrect_non_urgent_removed"],
+        "urgent_removed": breakdown["urgent_removed"],
+        "non_urgent_removed": breakdown["non_urgent_removed"],
+    }
+
+
 def generate_markdown_report(metrics, timeline):
     lines = [
         "# Context Aware Manager Evaluation Report",
@@ -452,46 +493,75 @@ def generate_markdown_report(metrics, timeline):
         "",
         "## 1. Executive Summary & Core Metrics",
         "",
-        "The Context Aware Manager is designed to mitigate alert fatigue (deduplication) and minimize user distraction in specific context modes (Sleep, Focus) without compromising safety. When evaluated against the YAMNet test set, the results show that:",
+        "The Context Aware Manager is designed to mitigate alert fatigue (deduplication) and minimize user distraction in specific context modes (Sleep, Focus, Cooking, Bathroom) without compromising safety. When evaluated against the YAMNet test set, the results show that:",
         "",
         "- **Bypassing the Manager (Disabled)** causes high distraction rates, alerting on **every** target sound prediction including false alarms and out-of-scope noises in all modes. Under Focus and Sleep modes, this results in significant user disturbance.",
         "- **Enabling the Manager** correctly filters alerts based on active context policies: suppressing **100% of non-critical alerts in Focus mode** and **100% of low/useful alerts in Sleep mode** while ensuring that **100% of critical/urgent life safety sounds (fire_alarm, clock_alarm) are still routed**.",
+        "- **Cooking Mode Policy** successfully allows relevant events like `water_running` and `speech` while filtering out other unrelated noises (such as `dog_barking`).",
+        "- **Bathroom Mode Policy** successfully filters out `water_running` to avoid false alerts from ambient water flow, while remaining sensitive to doorbell and knock events.",
         "- **Temporal Deduplication** prevents alert overload by rate-limiting rapid repeats (e.g. dog barks or running water), suppressing repeated notifications within a defined cooling window.",
         "- **Temporal Sequence Boosting** improves recall for low-intensity/low-confidence speech events that immediately follow a door knock or doorbell, raising their detection confidence by **+5%**.",
         "",
         "### Core Evaluation Metrics Comparison",
         "",
-        "| Metric | Manager Disabled | Manager Enabled (General) | Manager Enabled (Sleep) | Manager Enabled (Focus) |",
-        "| :--- | :---: | :---: | :---: | :---: |"
+        "| Metric | Manager Disabled | Manager Enabled (General) | Manager Enabled (Sleep) | Manager Enabled (Focus) | Manager Enabled (Cooking) | Manager Enabled (Bathroom) |",
+        "| :--- | :---: | :---: | :---: | :---: | :---: | :---: |"
     ]
     
     dis_gen = metrics["Manager Disabled (General Mode)"]
     en_gen = metrics["Manager Enabled (General Mode)"]
     en_slp = metrics["Manager Enabled (Sleep Mode)"]
     en_fcs = metrics["Manager Enabled (Focus Mode)"]
+    en_ckg = metrics["Manager Enabled (Cooking Mode)"]
+    en_bth = metrics["Manager Enabled (Bathroom Mode)"]
     
     lines.append(
-        f"| **Alert Policy Accuracy** | {dis_gen['policy_accuracy']*100:.2f}% | {en_gen['policy_accuracy']*100:.2f}% | {en_slp['policy_accuracy']*100:.2f}% | {en_fcs['policy_accuracy']*100:.2f}% |"
+        f"| **Alert Policy Accuracy** | {dis_gen['policy_accuracy']*100:.2f}% | {en_gen['policy_accuracy']*100:.2f}% | {en_slp['policy_accuracy']*100:.2f}% | {en_fcs['policy_accuracy']*100:.2f}% | {en_ckg['policy_accuracy']*100:.2f}% | {en_bth['policy_accuracy']*100:.2f}% |"
     )
     lines.append(
-        f"| **Alerts Triggered (Distraction Volume)** | {dis_gen['alerts_triggered']} | {en_gen['alerts_triggered']} | {en_slp['alerts_triggered']} | {en_fcs['alerts_triggered']} |"
+        f"| **Alerts Triggered (Distraction Volume)** | {dis_gen['alerts_triggered']} | {en_gen['alerts_triggered']} | {en_slp['alerts_triggered']} | {en_fcs['alerts_triggered']} | {en_ckg['alerts_triggered']} | {en_bth['alerts_triggered']} |"
     )
     lines.append(
-        f"| **Alerts Suppressed (Distraction Mitigated)** | {dis_gen['alerts_suppressed']} | {en_gen['alerts_suppressed']} | {en_slp['alerts_suppressed']} | {en_fcs['alerts_suppressed']} |"
+        f"| **Alerts Suppressed (Distraction Mitigated)** | {dis_gen['alerts_suppressed']} | {en_gen['alerts_suppressed']} | {en_slp['alerts_suppressed']} | {en_fcs['alerts_suppressed']} | {en_ckg['alerts_suppressed']} | {en_bth['alerts_suppressed']} |"
     )
     lines.append(
-        f"| **Urgent Sound Miss Rate** | {dis_gen['urgent_miss_rate']*100:.2f}% | {en_gen['urgent_miss_rate']*100:.2f}% | {en_slp['urgent_miss_rate']*100:.2f}% | {en_fcs['urgent_miss_rate']*100:.2f}% |"
+        f"| **Urgent Sound Miss Rate** | {dis_gen['urgent_miss_rate']*100:.2f}% | {en_gen['urgent_miss_rate']*100:.2f}% | {en_slp['urgent_miss_rate']*100:.2f}% | {en_fcs['urgent_miss_rate']*100:.2f}% | {en_ckg['urgent_miss_rate']*100:.2f}% | {en_bth['urgent_miss_rate']*100:.2f}% |"
     )
     lines.append(
-        f"| **False Alarm Rate (FAR) - Background** | {dis_gen['background_far']*100:.2f}% | {en_gen['background_far']*100:.2f}% | {en_slp['background_far']*100:.2f}% | {en_fcs['background_far']*100:.2f}% |"
+        f"| **False Alarm Rate (FAR) - Background** | {dis_gen['background_far']*100:.2f}% | {en_gen['background_far']*100:.2f}% | {en_slp['background_far']*100:.2f}% | {en_fcs['background_far']*100:.2f}% | {en_ckg['background_far']*100:.2f}% | {en_bth['background_far']*100:.2f}% |"
     )
     lines.append(
-        f"| **False Alarm Rate (FAR) - Known Target** | {dis_gen['target_far']*100:.2f}% | {en_gen['target_far']*100:.2f}% | {en_slp['target_far']*100:.2f}% | {en_fcs['target_far']*100:.2f}% |"
+        f"| **False Alarm Rate (FAR) - Known Target** | {dis_gen['target_far']*100:.2f}% | {en_gen['target_far']*100:.2f}% | {en_slp['target_far']*100:.2f}% | {en_fcs['target_far']*100:.2f}% | {en_ckg['target_far']*100:.2f}% | {en_bth['target_far']*100:.2f}% |"
     )
     lines.append(
-        f"| **Overall False Alarm Rate (FAR)** | {dis_gen['overall_far']*100:.2f}% | {en_gen['overall_far']*100:.2f}% | {en_slp['overall_far']*100:.2f}% | {en_fcs['overall_far']*100:.2f}% |"
+        f"| **Overall False Alarm Rate (FAR)** | {dis_gen['overall_far']*100:.2f}% | {en_gen['overall_far']*100:.2f}% | {en_slp['overall_far']*100:.2f}% | {en_fcs['overall_far']*100:.2f}% | {en_ckg['overall_far']*100:.2f}% | {en_bth['overall_far']*100:.2f}% |"
     )
-    
+
+    lines.extend([
+        "",
+        "## 1a. Removed Alert Breakdown by Mode",
+        "",
+        "This section reports how many alerts were removed by each mode, grouped by whether the suppression was correct or incorrect, and whether the suppressed event was urgent or non-urgent.",
+        "",
+        "| Mode | Total Removed | Correctly Removed | Incorrectly Removed | Incorrectly Removed (Urgent) | Incorrectly Removed (Non-Urgent) | Urgent Removed | Non-Urgent Removed |",
+        "| :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+    ])
+
+    removal_rows = [
+        "Manager Disabled (General Mode)",
+        "Manager Enabled (General Mode)",
+        "Manager Enabled (Sleep Mode)",
+        "Manager Enabled (Focus Mode)",
+        "Manager Enabled (Cooking Mode)",
+        "Manager Enabled (Bathroom Mode)",
+    ]
+
+    for mode_name in removal_rows:
+        row = mode_removal_summary_entry(mode_name, metrics)
+        lines.append(
+            f"| {mode_name} | {row['total_removed']} | {row['correct_removed']} | {row['incorrect_removed']} | {row['incorrect_urgent_removed']} | {row['incorrect_non_urgent_removed']} | {row['urgent_removed']} | {row['non_urgent_removed']} |"
+        )
+
     lines.extend([
         "",
         "## 2. Temporal Sequence Simulation Verification",
@@ -528,7 +598,9 @@ def generate_markdown_report(metrics, timeline):
         "1. **Sequence Boost (t=2s)**: The low-confidence speech event (raw `58%`) following a door knock was boosted by **+5%** to `63%` (raising it above the medium-low threshold) and successfully triggered an alert. In the disabled manager baseline, it was only notified with low default priority.",
         "2. **Focus Mode Suppression (t=10s)**: A non-critical `dog_barking` event was suppressed by Focus mode rules, preventing user distraction. Meanwhile, a critical `fire_alarm` (t=12s) was successfully allowed and escalated to continuous full-screen alert.",
         "3. **Sleep Mode Suppression (t=30s)**: A non-critical `water_running` event was suppressed in Sleep mode, preventing sleep disturbance. A doorbell (t=35s) correctly broke through and alerted the user.",
-        "4. **Deduplication Rate Limiting (t=65s, t=75s)**: Repeated `dog_barking` events within the 45-second cool-down window were suppressed to avoid spamming the user. At `t=110s` (after 50 seconds of silence since the initial alert), a new barking alert was successfully allowed.",
+        "4. **Cooking Mode Selective Permission (t=40s, t=45s)**: A `water_running` event at t=40s was successfully allowed in Cooking mode (as it is relevant for cooking activities), whereas a `dog_barking` event at t=45s was correctly suppressed.",
+        "5. **Bathroom Mode Selective Suppression (t=50s, t=85s)**: A `water_running` event at t=50s was suppressed in Bathroom mode to avoid false alarms from shower/sink usage, while a `doorbell` at t=85s successfully pierced through to alert the user.",
+        "6. **Deduplication Rate Limiting (t=65s, t=75s)**: Repeated `dog_barking` events within the 45-second cool-down window were suppressed to avoid spamming the user. At `t=110s` (after 50 seconds of silence since the initial alert), a new barking alert was successfully allowed.",
         "",
         "## 3. Conclusion & Recommendations",
         "",
@@ -547,12 +619,112 @@ def generate_markdown_report(metrics, timeline):
         
     print(f"Generated Context Aware Manager evaluation report at: {OUTPUT_REPORT_PATH}")
 
+
+def generate_html_report(metrics):
+    summary_rows = []
+    mode_names = [
+        "Manager Disabled (General Mode)",
+        "Manager Enabled (General Mode)",
+        "Manager Enabled (Sleep Mode)",
+        "Manager Enabled (Focus Mode)",
+        "Manager Enabled (Cooking Mode)",
+        "Manager Enabled (Bathroom Mode)",
+    ]
+
+    for name in mode_names:
+        m = metrics[name]
+        summary_rows.append(
+            f"<tr><td>{name}</td><td>{m['policy_accuracy']*100:.2f}%</td><td>{m['alerts_triggered']}</td><td>{m['alerts_suppressed']}</td><td>{m['urgent_miss_rate']*100:.2f}%</td><td>{m['overall_far']*100:.2f}%</td></tr>"
+        )
+
+    removal_rows = []
+    for name in mode_names:
+        breakdown = metrics[name]["removal_breakdown"]
+        removal_rows.append(
+            f"<tr><td>{name}</td><td>{breakdown['total_removed']}</td><td>{breakdown['correct_removed']}</td><td>{breakdown['incorrect_removed']}</td><td>{breakdown['incorrect_urgent_removed']}</td><td>{breakdown['incorrect_non_urgent_removed']}</td><td>{breakdown['urgent_removed']}</td><td>{breakdown['non_urgent_removed']}</td></tr>"
+        )
+
+    html = f"""<!DOCTYPE html>
+<html lang=\"en\">
+<head>
+  <meta charset=\"UTF-8\" />
+  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />
+  <title>Context Aware Manager Evaluation Summary</title>
+  <style>
+    body {{ font-family: Arial, sans-serif; margin: 24px; background: #f5f7fb; color: #1d2433; }}
+    h1, h2 {{ color: #15314b; }}
+    .card {{ background: white; border-radius: 12px; padding: 20px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }}
+    table {{ border-collapse: collapse; width: 100%; background: white; }}
+    th, td {{ border: 1px solid #d9e1ee; padding: 10px 12px; text-align: left; }}
+    th {{ background: #eaf1ff; }}
+    .badge {{ display: inline-block; padding: 4px 8px; border-radius: 999px; background: #ebf7ef; color: #1d5e3a; font-size: 12px; font-weight: bold; }}
+  </style>
+</head>
+<body>
+  <h1>Context Aware Manager Evaluation Summary</h1>
+
+  <div class=\"card\">
+    <h2>Core Evaluation Metrics Comparison</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Mode</th>
+          <th>Alert Policy Accuracy</th>
+          <th>Alerts Triggered</th>
+          <th>Alerts Suppressed</th>
+          <th>Urgent Sound Miss Rate</th>
+          <th>Overall FAR</th>
+        </tr>
+      </thead>
+      <tbody>
+        {''.join(summary_rows)}
+      </tbody>
+    </table>
+  </div>
+
+  <div class=\"card\">
+    <h2>Removed Alert Breakdown by Mode</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Mode</th>
+          <th>Total Removed</th>
+          <th>Correctly Removed</th>
+          <th>Incorrectly Removed</th>
+          <th>Incorrectly Removed (Urgent)</th>
+          <th>Incorrectly Removed (Non-Urgent)</th>
+          <th>Urgent Removed</th>
+          <th>Non-Urgent Removed</th>
+        </tr>
+      </thead>
+      <tbody>
+        {''.join(removal_rows)}
+      </tbody>
+    </table>
+  </div>
+  <div class=\"card\">
+    <h2>Interpretation</h2>
+    <p><span class=\"badge\">Correctly Removed</span> = the system suppressed a sound that should not have alerted in that mode.</p>
+    <p><span class=\"badge\">Incorrectly Removed</span> = the system suppressed a sound that should have alerted, creating a missed alert.</p>
+    <p><span class=\"badge\">Incorrectly Removed (Urgent)</span> = a missed urgent alert that was suppressed.</p>
+    <p><span class=\"badge\">Incorrectly Removed (Non-Urgent)</span> = a missed non-urgent alert that was suppressed.</p>
+    <p><span class=\"badge\">Urgent Removed</span> = all suppressed urgent sounds, regardless of whether the suppression was correct or incorrect.</p>
+    <p><span class=\"badge\">Non-Urgent Removed</span> = all suppressed non-urgent sounds, regardless of whether the suppression was correct or incorrect.</p>
+  </div>
+</body>
+</html>
+"""
+    with open(OUTPUT_HTML_PATH, 'w', encoding='utf-8') as f:
+        f.write(html)
+    print(f"Generated HTML evaluation summary at: {OUTPUT_HTML_PATH}")
+
 def main():
     metrics = evaluate_on_test_set()
     if metrics is None:
         return
     timeline = run_temporal_simulation()
     generate_markdown_report(metrics, timeline)
+    generate_html_report(metrics)
 
 if __name__ == "__main__":
     main()

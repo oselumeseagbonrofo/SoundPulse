@@ -52,7 +52,7 @@ class SoundMonitoringService : Service() {
     private var notificationIdCounter = 1000
 
     private var activeMode: String = "general"
-    private var backbone: String = "tiny_cnn"
+    private var backbone: String = "yamnet"
 
     // Callback for MainActivity when bound
     interface Listener {
@@ -120,7 +120,7 @@ class SoundMonitoringService : Service() {
 
         if (startedFromBoot) {
             // Load arguments from SharedPreferences
-            backbone = prefs.getString("backbone", "tiny_cnn") ?: "tiny_cnn"
+            backbone = prefs.getString("backbone", "yamnet") ?: "yamnet"
             activeMode = prefs.getString("mode", "general") ?: "general"
             val modelPath = prefs.getString("modelPath", "") ?: ""
             val classLabelsPath = prefs.getString("classLabelsPath", "") ?: ""
@@ -149,7 +149,7 @@ class SoundMonitoringService : Service() {
             }
         } else {
             // Extract arguments from Intent
-            val b = intent?.getStringExtra("backbone") ?: "tiny_cnn"
+            val b = intent?.getStringExtra("backbone") ?: "yamnet"
             backbone = b
             val m = intent?.getStringExtra("mode") ?: "general"
             activeMode = m
@@ -617,7 +617,12 @@ class SoundMonitoringService : Service() {
     }
 
     private fun formatSoundLabel(slug: String): String {
-        return slug.split("_").joinToString(" ") { it.replaceFirstChar { char -> char.uppercase() } }
+        val clean = slug.replace("custom_", "")
+        val check = clean.replace("_", " ").lowercase()
+        if (check == "door wood creaking") {
+            return "Door Opening"
+        }
+        return clean.split("_").joinToString(" ") { it.replaceFirstChar { char -> char.uppercase() } }
     }
 
     // Vibrations implementation

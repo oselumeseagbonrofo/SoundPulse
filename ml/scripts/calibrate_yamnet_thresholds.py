@@ -55,6 +55,8 @@ FSD50K_IN_SCOPE_LABELS = {
     "Female_speech_and_woman_speaking",
     "Knock",
     "Male_speech_and_man_speaking",
+    "Siren",
+    "Slam",
     "Sliding_door",
     "Speech",
     "Speech_synthesizer",
@@ -77,6 +79,8 @@ FSD50K_IN_SCOPE_MIDS = {
     "/m/0brhx",
     "/m/07q6cd_",
     "/m/02jz0l",
+    "/m/03kmc9",
+    "/m/07rjzl8",
 }
 FSD50K_IN_SCOPE_KEYWORDS = (
     "alarm",
@@ -85,6 +89,8 @@ FSD50K_IN_SCOPE_KEYWORDS = (
     "dog",
     "door",
     "knock",
+    "siren",
+    "slam",
     "sobb",
     "speech",
     "squeak",
@@ -873,6 +879,10 @@ def main() -> None:
         encoding="utf-8",
     )
     (EVALUATION_DIR / "yamnet_threshold_candidate.json").write_text(
+        json.dumps(candidate_thresholds, indent=2),
+        encoding="utf-8",
+    )
+    (CONTRACTS_DIR / "yamnet_threshold_defaults.json").write_text(
         json.dumps(candidate_thresholds, indent=2),
         encoding="utf-8",
     )

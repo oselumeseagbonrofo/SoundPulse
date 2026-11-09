@@ -25,7 +25,6 @@ VALID_SPLITS = {"train", "validation", "test"}
 CURATED_EXCLUDED_CLASSES = {"background"}
 
 ESC50_PHASE1_LABEL_MAP = {
-    "fireworks": "fire_alarm",
     "clock_alarm": "clock_alarm",
     "door_wood_knock": "door_knock",
     "crying_baby": "crying_baby",
@@ -34,32 +33,22 @@ ESC50_PHASE1_LABEL_MAP = {
 }
 
 FSD50K_PHASE1_MID_TO_CLASS = {
-    "/m/07pp_mv": "fire_alarm",
     "/m/07r4wb8": "door_knock",
     "/m/03wwcy": "doorbell",
     "/m/0463cq4": "crying_baby",
     "/m/02jz0l": "water_running",
     "/m/05tny_": "dog_barking",
-    "/m/07q6cd_": "door_wood_creaking",
     "/m/09x0r": "speech",
-    "/m/04brg2": "background",
-    "/m/0dxrf": "background",
-    "/m/04rlf": "background",
     "/m/02x984l": "background",
 }
 
 FSD50K_PHASE1_LABEL_TO_CLASS = {
-    "Alarm": "fire_alarm",
     "Knock": "door_knock",
     "Doorbell": "doorbell",
     "Crying_and_sobbing": "crying_baby",
     "Water_tap_and_faucet": "water_running",
     "Bark": "dog_barking",
-    "Squeak": "door_wood_creaking",
     "Speech": "speech",
-    "Dishes_and_pots_and_pans": "background",
-    "Frying_(food)": "background",
-    "Music": "background",
     "Mechanical_fan": "background",
 }
 
@@ -76,8 +65,7 @@ FSD50K_SPECIFIC_PHASE1_CLASSES = {
 
 PHASE1_CLASS_TO_SOURCE_MAPPING = {
     "fire_alarm": {
-        "esc50_categories": ["fireworks"],
-        "fsd50k_mids": ["/m/07pp_mv"],
+        "fsd50k_mids": ["/m/07pp_mv", "/m/03kmc9"],
     },
     "clock_alarm": {
         "esc50_categories": ["clock_alarm"],
@@ -105,7 +93,7 @@ PHASE1_CLASS_TO_SOURCE_MAPPING = {
     },
     "door_wood_creaking": {
         "esc50_categories": ["door_wood_creaks"],
-        "fsd50k_mids": ["/m/07q6cd_"],
+        "fsd50k_mids": ["/m/07q6cd_", "/m/02dgv", "/m/07rjzl8"],
     },
     "speech": {
         "esc50_categories": [],
@@ -113,7 +101,7 @@ PHASE1_CLASS_TO_SOURCE_MAPPING = {
     },
     "background": {
         "esc50_categories": [],
-        "fsd50k_mids": ["/m/04brg2", "/m/0dxrf", "/m/04rlf", "/m/02x984l"],
+        "fsd50k_mids": ["/m/02x984l"],
         "note": "Excluded from the curated phase-1 dataset; retained only as a runtime/background concept.",
     },
 }
@@ -468,6 +456,18 @@ def _build_fsd50k_split_records(
 
 
 def _resolve_fsd50k_class_slug(mids: str, labels: str) -> str | None:
+    mid_set = {m.strip() for m in mids.split(",") if m.strip()}
+
+    # Custom rule for fire_alarm: must contain both siren and alarm together
+    if {"/m/03kmc9", "/m/07pp_mv"}.issubset(mid_set):
+        return "fire_alarm"
+
+    # Custom rule for door_wood_creaking:
+    # 1. squeak and door together
+    # 2. squeak, slam, and door together
+    if {"/m/07q6cd_", "/m/02dgv"}.issubset(mid_set) or {"/m/07q6cd_", "/m/07rjzl8", "/m/02dgv"}.issubset(mid_set):
+        return "door_wood_creaking"
+
     matched_label_classes = {
         FSD50K_PHASE1_LABEL_TO_CLASS[label]
         for label in labels.split(",")

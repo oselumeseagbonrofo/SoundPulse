@@ -114,7 +114,41 @@ class LiteRtRuntimeEngine(
     }
 
     override fun extractEmbedding(windowPcmFloat32: FloatArray): FloatArray {
-        return embeddingExtractor.extractEmbedding(preprocessor.prepareWindow(windowPcmFloat32))
+        if (windowPcmFloat32.size <= preprocessing.windowSamples) {
+            val preprocessed = preprocessor.prepareWindow(windowPcmFloat32)
+            return embeddingExtractor.extractEmbedding(preprocessed)
+        }
+
+        val tempSegmenter = AudioWindowSegmenter(preprocessing.windowSamples, preprocessing.hopSamples)
+        val patches = tempSegmenter.append(windowPcmFloat32)
+        if (patches.isEmpty()) {
+            val preprocessed = preprocessor.prepareWindow(windowPcmFloat32)
+            return embeddingExtractor.extractEmbedding(preprocessed)
+        }
+
+        var accumulated: FloatArray? = null
+        var count = 0
+        for (patch in patches) {
+            val preprocessed = preprocessor.prepareWindow(patch)
+            val emb = embeddingExtractor.extractEmbedding(preprocessed)
+            if (accumulated == null) {
+                accumulated = FloatArray(emb.size)
+            }
+            for (i in emb.indices) {
+                accumulated[i] += emb[i]
+            }
+            count++
+        }
+
+        if (accumulated != null && count > 0) {
+            for (i in accumulated.indices) {
+                accumulated[i] /= count
+            }
+            return accumulated
+        }
+
+        val preprocessed = preprocessor.prepareWindow(windowPcmFloat32)
+        return embeddingExtractor.extractEmbedding(preprocessed)
     }
 
     override fun updatePrototype(label: String, embedding: FloatArray) {
@@ -138,7 +172,6 @@ class LiteRtRuntimeEngine(
         }
     }
 }
-
 
 private val Mode.key: String
     get() =

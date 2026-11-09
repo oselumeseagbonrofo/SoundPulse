@@ -34,5 +34,4 @@ flutter:
     - assets/models/yamnet/yamnet_embedding.tflite
     - assets/models/yamnet/prototype_store.json
     - assets/models/yamnet/threshold_defaults.json
-    - assets/benchmark/
 

@@ -21,7 +21,7 @@ REQUIRED_FILES = [
     "preprocessing_config.json",
     "threshold_defaults.json",
     "thresholds.schema.json",
-    "event_chains.json",
+    "context_aware_alert_policy.json",
     "inference_result.schema.json",
     "export_manifest.schema.json",
 ]

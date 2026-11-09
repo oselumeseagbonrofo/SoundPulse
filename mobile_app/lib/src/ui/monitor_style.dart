@@ -66,6 +66,10 @@ String formatSoundLabel(String label) {
   if (clean.startsWith("custom_")) {
     clean = clean.substring(7);
   }
+  final String check = clean.replaceAll("_", " ").toLowerCase();
+  if (check == "door wood creaking") {
+    return "Door opening";
+  }
   clean = clean.replaceAll("_", " ");
   if (clean.isEmpty) {
     return "";

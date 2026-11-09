@@ -54,8 +54,8 @@ def process_single_file(file_path):
             # Convert to log amplitude (dB scale)
             mel_db = librosa.power_to_db(mel_spec, ref=np.max)
             
-            # Transpose to (101 time_frame, 96 n_mels) and Compress to float16
-            mel_float16 = mel_db.T.astype(np.float16)
+            # Compress to float16
+            mel_float16 = mel_db.astype(np.float16)
             
             # Save with patch index: filename_000000.npy, filename_001000.npy, etc.
             output_path = os.path.join(

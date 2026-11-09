@@ -5,6 +5,7 @@ import "package:hive/hive.dart";
 import "package:encrypt/encrypt.dart" as enc;
 import "package:path_provider/path_provider.dart";
 import "../models/custom_sound_sample.dart";
+import "../runtime/app_config.dart";
 
 /// Persists preferences, custom sound configs, thresholds, context policies,
 /// event history, feedback, and user recorded sound metadata in Hive with AES-256 encryption.
@@ -147,8 +148,7 @@ class LocalStorageService {
   }
 
   Future<String> readBackbone() async {
-    final box = _settingsBox();
-    return box?.get(_backboneKey, defaultValue: "yamnet") as String? ?? "yamnet";
+    return AppConfig.activeBackbone;
   }
 
   Future<void> saveVibrationEnabled(bool enabled) {

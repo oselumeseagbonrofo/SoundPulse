@@ -6,27 +6,27 @@
     "validation": 64,
     "test": 64
   },
-  "test_support": 528,
+  "test_support": 510,
   "aggregate_metrics": {
-    "accuracy": 0.5076,
-    "macro_precision": 0.5673,
-    "macro_recall": 0.5432,
-    "macro_f1": 0.5181,
-    "weighted_precision": 0.582,
-    "weighted_recall": 0.5076,
-    "weighted_f1": 0.5108
+    "accuracy": 0.7451,
+    "macro_precision": 0.7411,
+    "macro_recall": 0.7658,
+    "macro_f1": 0.7363,
+    "weighted_precision": 0.769,
+    "weighted_recall": 0.7451,
+    "weighted_f1": 0.745
   },
   "per_class_recall": {
-    "fire_alarm": 0.2969,
-    "clock_alarm": 0.875,
-    "door_knock": 0.25,
-    "doorbell": 0.3824,
-    "crying_baby": 0.7368,
-    "water_running": 0.7969,
-    "dog_barking": 0.5625,
-    "door_wood_creaking": 0.4688,
-    "speech": 0.8281,
-    "background": 0.2344
+    "fire_alarm": 0.7455,
+    "clock_alarm": 1.0,
+    "door_knock": 0.8281,
+    "doorbell": 0.6471,
+    "crying_baby": 0.7949,
+    "water_running": 0.875,
+    "dog_barking": 0.75,
+    "door_wood_creaking": 0.7188,
+    "speech": 0.4844,
+    "background": 0.8148
   },
   "predictions_path": "ml\\evaluation\\yamnet_same_cap_predictions.csv"
 }

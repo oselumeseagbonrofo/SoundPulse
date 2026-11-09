@@ -10,23 +10,22 @@ class MonitorLiveFeedTab extends StatelessWidget {
   const MonitorLiveFeedTab({
     super.key,
     required this.mode,
-    required this.backbone,
     required this.contextAware,
     required this.monitoring,
     required this.history,
     required this.onModeChanged,
-    required this.onBackboneChanged,
     required this.onContextAwareChanged,
     required this.onViewAll,
   });
 
+  // System Modes List
+  static const List<String> _systemModes = ["general", "focus", "sleep", "cooking", "bathroom"];
+
   final String mode;
-  final String backbone;
   final bool contextAware;
   final bool monitoring;
   final List<MonitorHistoryEntry> history;
   final Future<void> Function(String mode) onModeChanged;
-  final Future<void> Function(String backbone) onBackboneChanged;
   final Future<void> Function(bool enabled) onContextAwareChanged;
   final VoidCallback onViewAll;
 
@@ -59,32 +58,13 @@ class MonitorLiveFeedTab extends StatelessWidget {
                       fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 10),
-                Row(
-                  children: <Widget>[
-                    _modeChip("general"),
-                    const SizedBox(width: 8),
-                    _modeChip("focus"),
-                    const SizedBox(width: 8),
-                    _modeChip("sleep"),
-                    const SizedBox(width: 8),
-                    _modeChip("cooking"),
-                  ],
-                ),
-                const SizedBox(height: 14),
-                const Text(
-                  "Active ML Model",
-                  style: TextStyle(
-                      color: monitorOnSurfaceVariant,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  children: <Widget>[
-                    _backboneChip("tiny_cnn", "Tiny CNN (1024-D)"),
-                    const SizedBox(width: 8),
-                    _backboneChip("yamnet", "YAMNet (1024-D)"),
-                  ],
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: _systemModes.map((mode) {
+                      return _modeChip(mode);
+                    }).toList(),
+                  ),
                 ),
                 const SizedBox(height: 14),
                 Row(
@@ -152,14 +132,13 @@ class MonitorLiveFeedTab extends StatelessWidget {
 
   Widget _modeChip(String candidateMode) {
     final bool selected = mode == candidateMode;
-    return Expanded(
-      child: InkWell(
+    return InkWell(
         borderRadius: BorderRadius.circular(12),
         onTap: () async {
           await onModeChanged(candidateMode);
         },
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 11),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
           decoration:
               selected ? monitorPressed(radius: 12) : monitorRaised(radius: 12),
           child: Text(
@@ -172,35 +151,10 @@ class MonitorLiveFeedTab extends StatelessWidget {
             ),
           ),
         ),
-      ),
-    );
+      );
   }
 
-  Widget _backboneChip(String candidateBackbone, String label) {
-    final bool selected = backbone == candidateBackbone;
-    return Expanded(
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: () async {
-          await onBackboneChanged(candidateBackbone);
-        },
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 11),
-          decoration:
-              selected ? monitorPressed(radius: 12) : monitorRaised(radius: 12),
-          child: Text(
-            label,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: selected ? monitorPrimary : monitorOnSurfaceVariant,
-              fontWeight: FontWeight.w600,
-              fontSize: 12,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+
 
   Widget _buildHistoryCard(MonitorHistoryEntry entry) {
     final String confidence = "${(entry.event.confidence * 100).round()}%";

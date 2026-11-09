@@ -10,6 +10,7 @@ import "package:record/record.dart";
 import "../models/custom_sound_sample.dart";
 import "../models/inference_event.dart";
 import "../models/monitor_history_entry.dart";
+import "../runtime/app_config.dart";
 import "../runtime/runtime_bridge.dart";
 import "../storage/local_storage_service.dart";
 import "monitor_history_tab.dart";
@@ -42,7 +43,7 @@ class _MonitorPageState extends State<MonitorPage> with WidgetsBindingObserver {
   bool _monitoring = false;
   bool _contextAware = false;
   String _mode = "general";
-  String _backbone = "yamnet";
+  String _backbone = AppConfig.activeBackbone;
   String _personalisationLevel = "default";
   String? _activeCriticalAlert;
   int _tabIndex = 0;
@@ -50,6 +51,7 @@ class _MonitorPageState extends State<MonitorPage> with WidgetsBindingObserver {
   bool _vibrationEnabled = false;
   bool _cameraFlashEnabled = false;
   String? _runtimeReadyBackbone;
+  bool _isSyncing = false;
 
   static const List<PersonalizableSoundOption> _builtInOptions = [
     PersonalizableSoundOption("crying_baby", "Crying baby"),
@@ -66,7 +68,7 @@ class _MonitorPageState extends State<MonitorPage> with WidgetsBindingObserver {
   final List<String> _predictionWindow = <String>[];
   String? _activeNotifiedSound;
 
-  static const int _windowSize = 5;
+  static const int _windowSize = 10;
   static const double _onsetThreshold = 0.60;
   static const double _offsetThreshold = 0.20;
 
@@ -117,7 +119,7 @@ class _MonitorPageState extends State<MonitorPage> with WidgetsBindingObserver {
 
     try {
       storedMode = await _storageService.readMode();
-      storedBackbone = await _storageService.readBackbone();
+      storedBackbone = AppConfig.activeBackbone;
       storedPersonalisationLevel = await _storageService.readPersonalisationLevel();
       storedContextAware = await _storageService.readContextAware();
       storedSounds = await _storageService.readRecordedSounds();
@@ -128,7 +130,7 @@ class _MonitorPageState extends State<MonitorPage> with WidgetsBindingObserver {
       storedMonitoring = await _runtimeBridge.isMonitoringActive();
     } catch (_) {
       storedMode = "general";
-      storedBackbone = "yamnet";
+      storedBackbone = AppConfig.activeBackbone;
       storedPersonalisationLevel = "default";
       storedContextAware = false;
       storedSounds = const <CustomSoundSample>[];
@@ -289,7 +291,7 @@ class _MonitorPageState extends State<MonitorPage> with WidgetsBindingObserver {
       return;
     }
     // Print Label & confidence for debugging. To be removed in final version.
-    debugPrint("Received event: label=${event.label}, confidence=${event.confidence}");
+    // debugPrint("Received event: label=${event.label}, confidence=${event.confidence}");
 
     // 1. Standardize label (background/unknown mapped to "background")
     final String label =
@@ -511,29 +513,7 @@ class _MonitorPageState extends State<MonitorPage> with WidgetsBindingObserver {
     });
   }
 
-  Future<void> _changeBackbone(String backbone) async {
-    await _storageService.saveBackbone(backbone);
-    if (!mounted) {
-      return;
-    }
-    setState(() {
-      _backbone = backbone;
-    });
 
-    if (_monitoring) {
-      try {
-        await _runtimeBridge.stopMonitoring();
-        await _runtimeBridge.startMonitoring(mode: _mode, backbone: backbone);
-        _runtimeReadyBackbone = backbone;
-        await _applyPersonalizedPrototypes();
-      } catch (e) {
-        _showErrorSnackBar("Failed to dynamically switch model: $e");
-        setState(() {
-          _monitoring = false;
-        });
-      }
-    }
-  }
 
   Future<void> _setContextAware(bool enabled) async {
     await _runtimeBridge.setContextAware(enabled);
@@ -800,10 +780,12 @@ class _MonitorPageState extends State<MonitorPage> with WidgetsBindingObserver {
     
     final List<MonitorHistoryEntry> kept = [];
     final List<MonitorHistoryEntry> removed = [];
+    final Set<String> seenIds = <String>{};
     
     for (final entry in _history) {
-      if (entry.capturedAt.isAfter(cutoff)) {
+      if (entry.capturedAt.isAfter(cutoff) && !seenIds.contains(entry.id)) {
         kept.add(entry);
+        seenIds.add(entry.id);
       } else {
         removed.add(entry);
       }
@@ -848,68 +830,86 @@ class _MonitorPageState extends State<MonitorPage> with WidgetsBindingObserver {
   }
 
   Future<void> _syncBackgroundEvents() async {
-    final List<Map<String, dynamic>> bgEvents =
-        await _storageService.readAndClearBackgroundEvents();
-    if (bgEvents.isEmpty) {
+    if (_isSyncing) {
       return;
     }
-
-    final List<MonitorHistoryEntry> newEntries = <MonitorHistoryEntry>[];
-    int legacyCounter = 0;
-    for (final Map<String, dynamic> map in bgEvents) {
-      final String fallbackId =
-          "${DateTime.now().microsecondsSinceEpoch}_${legacyCounter++}";
-      final String label = map["predicted_label"] as String? ?? "unknown";
-      final String tier = map["confidence_tier"] as String? ?? "low";
-      final double confidence = ((map["confidence"] as num?) ?? 0.0).toDouble();
-      final bool isUnknown = map["is_unknown"] as bool? ?? false;
-      final bool isBackground = map["is_background"] as bool? ?? false;
-      List<double> samples = (map["waveform_samples"] as List<dynamic>? ?? const <dynamic>[])
-          .map((dynamic e) => (e as num).toDouble())
-          .toList(growable: false);
-
-      // Recover waveform samples from the persisted WAV file if not in JSON
-      final String audioPath = map["audio_file_path"] as String? ?? "";
-      if (samples.isEmpty && audioPath.isNotEmpty) {
-        try {
-          final File wavFile = File(audioPath);
-          if (await wavFile.exists()) {
-            samples = await _readPcm16WavSamples(audioPath);
-          }
-        } catch (_) {
-          // Use empty samples if WAV recovery fails
-        }
+    _isSyncing = true;
+    try {
+      final List<Map<String, dynamic>> bgEvents =
+          await _storageService.readAndClearBackgroundEvents();
+      if (bgEvents.isEmpty) {
+        return;
       }
 
-      final InferenceEvent event = InferenceEvent(
-        label: label,
-        confidenceTier: tier,
-        confidence: confidence,
-        isUnknown: isUnknown,
-        isBackground: isBackground,
-        waveformSamples: samples,
-      );
+      final List<MonitorHistoryEntry> newEntries = <MonitorHistoryEntry>[];
+      final Set<String> existingIds = _history.map((entry) => entry.id).toSet();
+      int legacyCounter = 0;
 
-      newEntries.add(MonitorHistoryEntry(
-        id: map["event_id"] as String? ?? fallbackId,
-        event: event,
-        capturedAt: DateTime.tryParse(map["timestamp"] as String? ?? "") ?? DateTime.now(),
-        waveformSamples: samples,
-        audioFilePath: audioPath,
-      ));
-    }
+      for (final Map<String, dynamic> map in bgEvents) {
+        final String? rawId = map["event_id"] as String?;
+        if (rawId != null && existingIds.contains(rawId)) {
+          continue;
+        }
 
-    if (newEntries.isEmpty) return;
+        final String fallbackId =
+            "${DateTime.now().microsecondsSinceEpoch}_${legacyCounter++}";
+        final String label = map["predicted_label"] as String? ?? "unknown";
+        final String tier = map["confidence_tier"] as String? ?? "low";
+        final double confidence = ((map["confidence"] as num?) ?? 0.0).toDouble();
+        final bool isUnknown = map["is_unknown"] as bool? ?? false;
+        final bool isBackground = map["is_background"] as bool? ?? false;
+        List<double> samples = (map["waveform_samples"] as List<dynamic>? ?? const <dynamic>[])
+            .map((dynamic e) => (e as num).toDouble())
+            .toList(growable: false);
 
-    if (mounted) {
-      setState(() {
+        // Recover waveform samples from the persisted WAV file if not in JSON
+        final String audioPath = map["audio_file_path"] as String? ?? "";
+        if (samples.isEmpty && audioPath.isNotEmpty) {
+          try {
+            final File wavFile = File(audioPath);
+            if (await wavFile.exists()) {
+              samples = await _readPcm16WavSamples(audioPath);
+            }
+          } catch (_) {
+            // Use empty samples if WAV recovery fails
+          }
+        }
+
+        final InferenceEvent event = InferenceEvent(
+          label: label,
+          confidenceTier: tier,
+          confidence: confidence,
+          isUnknown: isUnknown,
+          isBackground: isBackground,
+          waveformSamples: samples,
+        );
+
+        final String eventId = rawId ?? fallbackId;
+        existingIds.add(eventId);
+
+        newEntries.add(MonitorHistoryEntry(
+          id: eventId,
+          event: event,
+          capturedAt: DateTime.tryParse(map["timestamp"] as String? ?? "") ?? DateTime.now(),
+          waveformSamples: samples,
+          audioFilePath: audioPath,
+        ));
+      }
+
+      if (newEntries.isEmpty) return;
+
+      if (mounted) {
+        setState(() {
+          _history.addAll(newEntries);
+        });
+      } else {
         _history.addAll(newEntries);
-      });
-    } else {
-      _history.addAll(newEntries);
-    }
+      }
 
-    await _cleanupAndSortHistory();
+      await _cleanupAndSortHistory();
+    } finally {
+      _isSyncing = false;
+    }
   }
 
   Future<List<double>> _readPcm16WavSamples(String filePath) async {
@@ -1134,12 +1134,10 @@ class _MonitorPageState extends State<MonitorPage> with WidgetsBindingObserver {
               children: <Widget>[
                 MonitorLiveFeedTab(
                   mode: _mode,
-                  backbone: _backbone,
                   contextAware: _contextAware,
                   monitoring: _monitoring,
                   history: _history,
                   onModeChanged: _changeMode,
-                  onBackboneChanged: _changeBackbone,
                   onContextAwareChanged: _setContextAware,
                   onViewAll: () => setState(() => _tabIndex = 1),
                 ),

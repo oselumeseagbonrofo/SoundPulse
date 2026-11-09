@@ -136,10 +136,9 @@ Implement context-aware routing and suppression logic.
 Collect release-decision evidence on target devices.
 
 ### Work
-1. Run TinyCNN and YAMNet on Samsung Galaxy A03 and Samsung Galaxy A14.
-2. Measure latency (P50/P95), CPU, memory, battery, false alarms, miss rate, macro/per-class metrics, artifact size.
+1. Run TinyCNN and YAMNet on Samsung Galaxy A14.
+2. Measure accuracy, macro F1, latency (P50/P95), CPU, battery usage, model size, miss rate for urgent sounds, false alarms
 3. Run context-on vs context-off matched scenarios.
-4. Run VAD on/off scenarios where supported.
 
 ### Deliverables
 1. Device-level benchmark CSV/Markdown reports.
@@ -184,4 +183,4 @@ Stabilize release candidate and prevent regressions.
 1. Create `packages/runtime_android/` and implement audio capture + LiteRT inference pipeline.
 2. Add runtime schema/parity tests before broad app UI work.
 3. Scaffold Flutter shell and wire runtime bridge for monitoring + mode control.
-4. Stand up storage layer (`Isar` + secure storage) before personalization implementation.
+4. Stand up storage layer (`Hive` + secure storage) before personalization implementation.

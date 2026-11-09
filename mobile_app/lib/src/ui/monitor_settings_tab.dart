@@ -1,11 +1,7 @@
 import "dart:async";
-import "dart:convert";
-import "dart:io";
-import "dart:math" as math;
-import "dart:typed_data";
+
 import "package:flutter/material.dart";
-import "package:flutter/services.dart" show rootBundle;
-import "package:path_provider/path_provider.dart";
+
 import "../storage/local_storage_service.dart";
 import "../runtime/runtime_bridge.dart";
 
@@ -38,19 +34,7 @@ class _MonitorSettingsTabState extends State<MonitorSettingsTab> {
   List<Map<String, dynamic>> _configs = <Map<String, dynamic>>[];
   bool _loading = true;
 
-  // Benchmark and Battery state variables
-  bool _runningBenchmark = false;
-  Map<String, dynamic>? _benchmarkResults;
-  String? _benchmarkError;
 
-  bool _batteryTestActive = false;
-  int? _batteryStartLevel;
-  DateTime? _batteryStartTime;
-  int? _currentBatteryLevel;
-  Timer? _batteryTimer;
-
-  double? _lastBatteryDrainRate;
-  double? _lastBatteryProjectedHours;
 
   // Track which sound cards are expanded
   final Set<String> _expandedSlugs = <String>{};
@@ -79,454 +63,30 @@ class _MonitorSettingsTabState extends State<MonitorSettingsTab> {
     {"slug": "sleep", "label": "Sleep"},
     {"slug": "cooking", "label": "Cooking"},
     {"slug": "bathroom", "label": "Bathroom"},
-    {"slug": "no_context", "label": "No Context"},
   ];
 
   @override
   void initState() {
     super.initState();
     unawaited(_loadConfigs());
-    unawaited(_loadBatteryTest());
   }
 
   @override
   void dispose() {
-    _batteryTimer?.cancel();
     super.dispose();
   }
 
-  Future<void> _loadBatteryTest() async {
-    final testData = await _storageService.readLastBatteryTest();
-    if (testData != null && mounted) {
-      setState(() {
-        _lastBatteryDrainRate = testData["drain_rate"];
-        _lastBatteryProjectedHours = testData["projected_hours"];
-      });
-    }
-  }
 
-  Future<void> _runOnDeviceModelBenchmark() async {
-    if (_runningBenchmark) return;
-    setState(() {
-      _runningBenchmark = true;
-      _benchmarkResults = null;
-      _benchmarkError = null;
-    });
 
-    bool wasActive = false;
-    try {
-      wasActive = await _runtimeBridge.isMonitoringActive();
-      if (wasActive) {
-        await _runtimeBridge.stopMonitoring();
-        await Future<void>.delayed(const Duration(milliseconds: 500));
-      }
 
-      final String backbone = await _storageService.readBackbone();
-      
-      // Load benchmark manifest
-      final String manifestStr = await rootBundle.loadString("assets/benchmark/benchmark_manifest.json");
-      final Map<String, dynamic> manifest = jsonDecode(manifestStr) as Map<String, dynamic>;
 
-      final List<List<double>> samplesList = <List<double>>[];
-      final List<String> labelsList = <String>[];
 
-      for (final entry in manifest.entries) {
-        final label = entry.key;
-        final clipInfo = entry.value as Map<String, dynamic>;
-        final String assetPath = clipInfo["asset_path"] as String;
 
-        // Load asset bytes
-        final ByteData data = await rootBundle.load(assetPath);
-        final Uint8List bytes = data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes);
 
-        // Parse WAV samples
-        final List<double> samples = await _readPcm16WavSamplesFromBytes(bytes);
-        samplesList.add(samples);
-        labelsList.add(label);
-      }
 
-      if (samplesList.isEmpty) {
-        throw Exception("No benchmark audio clips found in assets.");
-      }
 
-      // Run on-device benchmark via platform channel
-      final Map<String, dynamic> report = await _runtimeBridge.runOnDeviceBenchmark(
-        backbone: backbone,
-        samplesList: samplesList,
-        labelsList: labelsList,
-      );
 
-      // Read model file size
-      final String modelAsset = backbone == "tiny_cnn"
-          ? "assets/models/tiny_cnn/tinycnn_embedding.tflite"
-          : "assets/models/yamnet/yamnet_embedding.tflite";
-      final ByteData modelData = await rootBundle.load(modelAsset);
-      final int modelSizeBytes = modelData.lengthInBytes;
 
-      if (mounted) {
-        setState(() {
-          _benchmarkResults = {
-            ...report,
-            "backbone": backbone,
-            "model_size_bytes": modelSizeBytes,
-          };
-          _runningBenchmark = false;
-        });
-      }
-      
-      // Write prediction output locally as required by report generation
-      await _writePredictionsJson(report, backbone);
-
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _benchmarkError = e.toString();
-          _runningBenchmark = false;
-        });
-      }
-    } finally {
-      if (wasActive) {
-        try {
-          final String backbone = await _storageService.readBackbone();
-          await _runtimeBridge.startMonitoring(mode: widget.activeMode, backbone: backbone);
-        } catch (_) {}
-      }
-    }
-  }
-
-  Future<void> _writePredictionsJson(Map<String, dynamic> report, String backbone) async {
-    try {
-      final Directory docDir = await getApplicationDocumentsDirectory();
-      final File file = File("${docDir.path}/${backbone}_benchmark_predictions.json");
-      await file.writeAsString(jsonEncode(report), flush: true);
-      print("INFO: Saved internal predictions to ${file.path}");
-    } catch (e) {
-      print("ERROR: Failed to save internal predictions: $e");
-    }
-    try {
-      final List<Directory>? extDirs = await getExternalStorageDirectories(type: StorageDirectory.documents);
-      if (extDirs != null && extDirs.isNotEmpty) {
-        final File file = File("${extDirs.first.path}/${backbone}_benchmark_predictions.json");
-        await file.writeAsString(jsonEncode(report), flush: true);
-        print("INFO: Saved external predictions to ${file.path}");
-      } else {
-        print("INFO: No external storage directories found");
-      }
-    } catch (e) {
-      print("ERROR: Failed to save external predictions: $e");
-    }
-  }
-
-  Future<List<double>> _readPcm16WavSamplesFromBytes(Uint8List bytes) async {
-    if (bytes.length < 44) {
-      throw const FormatException("Benchmark WAV file is too short.");
-    }
-    final ByteData data = ByteData.sublistView(bytes);
-    int offset = 12;
-    int? dataOffset;
-    int? dataSize;
-    while (offset + 8 <= bytes.length) {
-      final String chunkId = String.fromCharCodes(bytes.sublist(offset, offset + 4));
-      final int chunkSize = data.getUint32(offset + 4, Endian.little);
-      if (chunkId == "data") {
-        dataOffset = offset + 8;
-        dataSize = chunkSize;
-        break;
-      }
-      offset += 8 + chunkSize + (chunkSize.isOdd ? 1 : 0);
-    }
-    if (dataOffset == null || dataSize == null) {
-      throw const FormatException("Benchmark WAV file has no PCM data chunk.");
-    }
-    final int sampleCount = (dataSize ~/ 2).clamp(0, 16000);
-    return List<double>.generate(sampleCount, (int index) {
-      final int byteOffset = dataOffset! + (index * 2);
-      if (byteOffset + 2 > bytes.length) {
-        return 0.0;
-      }
-      return (data.getInt16(byteOffset, Endian.little) / 32768.0).clamp(-1.0, 1.0);
-    }, growable: false);
-  }
-
-  Future<void> _toggleBatteryTest() async {
-    if (_batteryTestActive) {
-      _batteryTimer?.cancel();
-      final DateTime now = DateTime.now();
-      final int? startLevel = _batteryStartLevel;
-      final DateTime? startTime = _batteryStartTime;
-
-      if (startLevel != null && startTime != null) {
-        final int endLevel = await _runtimeBridge.getBatteryLevel();
-        final double elapsedHours = now.difference(startTime).inSeconds / 3600.0;
-        final int levelDrop = startLevel - endLevel;
-
-        double drainRate = 0.0;
-        double projectedHours = 0.0;
-
-        if (elapsedHours > 0) {
-          final double finalElapsed = math.max(elapsedHours, 1.0 / 3600.0);
-          drainRate = levelDrop / finalElapsed;
-          if (levelDrop == 0) {
-            drainRate = 0.0;
-          }
-          projectedHours = drainRate > 0 ? (100.0 / drainRate) : 999.0;
-        }
-
-        await _storageService.saveLastBatteryTest(drainRate: drainRate, projectedHours: projectedHours);
-
-        if (mounted) {
-          setState(() {
-            _batteryTestActive = false;
-            _lastBatteryDrainRate = drainRate;
-            _lastBatteryProjectedHours = projectedHours;
-          });
-        }
-      }
-    } else {
-      final int startLevel = await _runtimeBridge.getBatteryLevel();
-      if (mounted) {
-        setState(() {
-          _batteryTestActive = true;
-          _batteryStartLevel = startLevel;
-          _batteryStartTime = DateTime.now();
-          _currentBatteryLevel = startLevel;
-        });
-      }
-
-      _batteryTimer = Timer.periodic(const Duration(seconds: 10), (timer) async {
-        final level = await _runtimeBridge.getBatteryLevel();
-        if (mounted) {
-          setState(() {
-            _currentBatteryLevel = level;
-          });
-        }
-      });
-    }
-  }
-
-  Widget _buildEvaluationCard() {
-    final double? drainRate = _lastBatteryDrainRate;
-    final double? projected = _lastBatteryProjectedHours;
-    final Map<String, dynamic>? results = _benchmarkResults;
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: monitorRaised(radius: 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          const Row(
-            children: <Widget>[
-              Icon(Icons.analytics, color: monitorPrimary, size: 22),
-              SizedBox(width: 8),
-              Text(
-                "Research Evaluation & Benchmarking",
-                style: TextStyle(
-                  color: monitorOnSurface,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          const Text(
-            "Satisfies the US9 Research Evaluation requirements. Run hardware-level benchmarks directly on this device.",
-            style: TextStyle(
-              color: monitorOnSurfaceVariant,
-              fontSize: 11,
-            ),
-          ),
-          const Divider(height: 24, color: Color(0x1F000000)),
-          
-          const Text(
-            "CONTINUOUS BATTERY DRAIN TEST",
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 1.0,
-              color: monitorPrimary,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: <Widget>[
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    if (_batteryTestActive) ...[
-                      Row(
-                        children: <Widget>[
-                          const SizedBox(
-                            width: 12,
-                            height: 12,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: monitorPrimary),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            "Drain test running... Level: $_currentBatteryLevel%",
-                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: monitorPrimary),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        "Started at: ${_batteryStartTime?.toLocal().toString().substring(11, 19)} · Level: $_batteryStartLevel%",
-                        style: const TextStyle(fontSize: 11, color: monitorOnSurfaceVariant),
-                      ),
-                    ] else ...[
-                      const Text(
-                        "Measure continuous battery consumption offline.",
-                        style: TextStyle(fontSize: 12, color: monitorOnSurface),
-                      ),
-                      if (drainRate != null && projected != null) ...[
-                        const SizedBox(height: 6),
-                        Text(
-                          drainRate == 0.0
-                              ? "Last run: Too short to measure drain. Try running for longer."
-                              : "Last run: ${drainRate.toStringAsFixed(1)}% / hour (Projected: ${projected.toStringAsFixed(1)} hours)",
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            color: drainRate > 0.0 && projected < 8.0 ? const Color(0xFFB00020) : const Color(0xFF10B981),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              OutlinedButton(
-                onPressed: _runningBenchmark ? null : _toggleBatteryTest,
-                style: OutlinedButton.styleFrom(
-                  side: BorderSide(color: _batteryTestActive ? const Color(0xFFB00020) : monitorPrimary),
-                  foregroundColor: _batteryTestActive ? const Color(0xFFB00020) : monitorPrimary,
-                ),
-                child: Text(_batteryTestActive ? "Stop" : "Start"),
-              ),
-            ],
-          ),
-          const Divider(height: 24, color: Color(0x1F000000)),
-
-          const Text(
-            "MODEL LATENCY & MEMORY BENCHMARK",
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 1.0,
-              color: monitorPrimary,
-            ),
-          ),
-          const SizedBox(height: 10),
-          if (_runningBenchmark) ...[
-            const Center(
-              child: Padding(
-                padding: EdgeInsets.symmetric(vertical: 16),
-                child: Column(
-                  children: <Widget>[
-                    CircularProgressIndicator(color: monitorPrimary),
-                    SizedBox(height: 12),
-                    Text(
-                      "Running on-device model benchmark...",
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: monitorOnSurface),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ] else ...[
-            if (_benchmarkError != null) ...[
-              Text(
-                "Error: $_benchmarkError",
-                style: const TextStyle(fontSize: 12, color: Color(0xFFB00020)),
-              ),
-              const SizedBox(height: 8),
-            ],
-            if (results != null) ...[
-              _buildBenchmarkStats(results),
-              const SizedBox(height: 12),
-            ],
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: _batteryTestActive ? null : _runOnDeviceModelBenchmark,
-                icon: const Icon(Icons.speed),
-                label: const Text("Run On-Device Model Benchmark"),
-                style: FilledButton.styleFrom(
-                  backgroundColor: monitorPrimary,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBenchmarkStats(Map<String, dynamic> r) {
-    final String backbone = (r["backbone"] as String? ?? "yamnet").toUpperCase();
-    final double modelSizeMb = ((r["model_size_bytes"] as int? ?? 0) / (1024.0 * 1024.0));
-    final double memMb = ((r["memory_used_bytes"] as double? ?? 0.0) / (1024.0 * 1024.0));
-    final double cpuMs = r["cpu_time_ms"] as double? ?? 0.0;
-    
-    final List<dynamic> overallList = r["overall_latencies"] as List<dynamic>? ?? const [];
-    final List<dynamic> inferenceList = r["inference_latencies"] as List<dynamic>? ?? const [];
-
-    final double p50Overall = _percentile(overallList, 0.50);
-    final double p95Overall = _percentile(overallList, 0.95);
-    final double p50Inference = _percentile(inferenceList, 0.50);
-    final double p95Inference = _percentile(inferenceList, 0.95);
-
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: monitorPressed(radius: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Text(
-            "Results: $backbone Backbone",
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: monitorOnSurface),
-          ),
-          const SizedBox(height: 8),
-          _buildStatRow("Model File Size", "${modelSizeMb.toStringAsFixed(2)} MB"),
-          _buildStatRow("P50 Overall Latency", "${p50Overall.toStringAsFixed(1)} ms"),
-          _buildStatRow("P95 Overall Latency", "${p95Overall.toStringAsFixed(1)} ms"),
-          _buildStatRow("P50 Inference Latency", "${p50Inference.toStringAsFixed(1)} ms"),
-          _buildStatRow("P95 Inference Latency", "${p95Inference.toStringAsFixed(1)} ms"),
-          _buildStatRow("JVM Heap Delta", "${memMb.toStringAsFixed(2)} MB"),
-          _buildStatRow("CPU Active Exec Time", "${cpuMs.toStringAsFixed(0)} ms"),
-          const SizedBox(height: 6),
-          const Text(
-            "Raw predictions successfully saved to documents directory for host evaluation.",
-            style: TextStyle(fontSize: 9, color: Color(0xFF10B981), fontWeight: FontWeight.w600),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: <Widget>[
-          Text(label, style: const TextStyle(fontSize: 11, color: monitorOnSurfaceVariant)),
-          Text(value, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: monitorOnSurface)),
-        ],
-      ),
-    );
-  }
-
-  double _percentile(List<dynamic> list, double pct) {
-    if (list.isEmpty) return 0.0;
-    final sorted = list.map((e) => (e as num).toDouble()).toList()..sort();
-    final index = (sorted.length * pct).floor().clamp(0, sorted.length - 1);
-    return sorted[index];
-  }
 
   Map<String, bool> _getInitialAllowValues(String slug) {
     if (slug == "fire_alarm" || slug == "clock_alarm") {
@@ -905,9 +465,7 @@ class _MonitorSettingsTabState extends State<MonitorSettingsTab> {
                   ),
                   const SizedBox(height: 24),
 
-                  // Research Evaluation & Benchmarking Neumorphic Card
-                  _buildEvaluationCard(),
-                  const SizedBox(height: 24),
+
 
                   // 2. Sound Detections Gating Header
                   const Text(

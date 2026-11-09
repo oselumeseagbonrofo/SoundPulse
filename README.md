@@ -1,15 +1,15 @@
 # SoundPulse
 
-SoundPulse is an offline-first, on-device Android sound awareness application designed for Deaf and Hard-of-Hearing (DHH) users in Nigerian homes. It detects key environmental and safety-critical sounds, processes them locally, and delivers context-aware visual and haptic alerts.
+SoundPulse is an offline-first, on-device Android sound awareness application designed for Nigerian Deaf and Hard-of-Hearing (DHH) users for use in their homes. It detects key environmental and safety-critical sounds, processes them locally, and delivers context-aware visual and haptic alerts.
 
 Some portions of this code was generated using Codex, Github Copilot and Google Antigravity respectively.
 
 ## Key Features
 
-*   **Offline Sound Recognition**: On-device audio processing utilizing LiteRT (TensorFlow Lite) backbones (Tiny CNN & YAMNet embeddings).
-*   **Personalization**: Few-shot prototype centroid adaptation with user recordings to accommodate local acoustics without cloud storage.
-*   **Open-Set & Noise Rejection**: Euclidean distance-based gating rejects unknown sound events and suppresses background/generator noise.
-*   **Context-Aware Alert Routing**: Dynamically scales alert thresholds, priorities, and notification modalities across context modes (_General, Sleep, Focus, Cooking, Bathroom_).
+*   **Offline Sound Recognition**: On-device audio processing utilizing LiteRT (TensorFlow Lite) backbones (MobileNetV4 based & YAMNet embeddings).
+*   **Personalization**: Utilised Prototypical Networks with user recordings to accommodate local contexts.
+*   **Open-Set & Noise Rejection**: Euclidean distance-based gating rejects unknown sound events and suppresses background noise.
+*   **Context-Aware Alert Routing**: Dynamically scales detected sounds, and notification modalities across context modes (_General, Sleep, Focus, Cooking_).
 *   **Visual & Haptic Alerts**: Highly visible full-screen alerts, screen/camera flash patterns, and structured vibration outputs.
 
 ---

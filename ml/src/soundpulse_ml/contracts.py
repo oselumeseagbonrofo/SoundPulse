@@ -15,7 +15,7 @@ class ContractBundle:
     class_labels: dict[str, Any]
     preprocessing: dict[str, Any]
     threshold_defaults: dict[str, Any]
-    event_chains: dict[str, Any]
+    context_aware_alert_policy: dict[str, Any]
 
     @property
     def class_slugs(self) -> list[str]:
@@ -33,7 +33,7 @@ def load_contract_bundle(contracts_dir: Path | None = None) -> ContractBundle:
         class_labels=_load_json(base_dir / "class_labels.json"),
         preprocessing=_load_json(base_dir / "preprocessing_config.json"),
         threshold_defaults=_load_json(base_dir / "threshold_defaults.json"),
-        event_chains=_load_json(base_dir / "event_chains.json"),
+        context_aware_alert_policy=_load_json(base_dir / "context_aware_alert_policy.json"),
     )
     _validate_bundle(bundle)
     return bundle
@@ -53,8 +53,8 @@ def _validate_bundle(bundle: ContractBundle) -> None:
         raise ValueError("Class slugs must be unique")
 
     audio = bundle.preprocessing.get("audio", {})
-    if audio.get("window_duration_ms") != 982:
-        raise ValueError("Window duration must remain 982 ms for the runtime contract")
+    if audio.get("window_duration_ms") != 1000:
+        raise ValueError("Window duration must remain 1000 ms for the runtime contract")
 
     embedding_contract = bundle.preprocessing.get("embedding_contract", {})
     if embedding_contract.get("tiny_cnn_dim") != 1024:

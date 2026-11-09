@@ -159,7 +159,7 @@ class MainActivity : FlutterActivity() {
 
                     "startMonitoring" -> {
                         val activeModeStr = call.argument<String>("mode") ?: "general"
-                        val backbone = call.argument<String>("backbone") ?: "tiny_cnn"
+                        val backbone = call.argument<String>("backbone") ?: "yamnet"
                         val modelPath = call.argument<String>("modelPath")
                         val classLabelsPath = call.argument<String>("classLabelsPath")
                         val preprocessingConfigPath = call.argument<String>("preprocessingConfigPath")
@@ -179,7 +179,7 @@ class MainActivity : FlutterActivity() {
                     }
 
                     "initializeRuntime" -> {
-                        val backbone = call.argument<String>("backbone") ?: "tiny_cnn"
+                        val backbone = call.argument<String>("backbone") ?: "yamnet"
                         val modelPath = call.argument<String>("modelPath")
                         val classLabelsPath = call.argument<String>("classLabelsPath")
                         val preprocessingConfigPath = call.argument<String>("preprocessingConfigPath")
@@ -341,39 +341,7 @@ class MainActivity : FlutterActivity() {
                         result.success(getBatteryLevel())
                     }
 
-                    "runOnDeviceBenchmark" -> {
-                        val backbone = call.argument<String>("backbone") ?: "tiny_cnn"
-                        val modelPath = call.argument<String>("modelPath")
-                        val classLabelsPath = call.argument<String>("classLabelsPath")
-                        val preprocessingConfigPath = call.argument<String>("preprocessingConfigPath")
-                        val thresholdDefaultsPath = call.argument<String>("thresholdDefaultsPath")
-                        val prototypeStorePath = call.argument<String>("prototypeStorePath")
-                        val samplesList = call.argument<List<List<Number>>>("samplesList").orEmpty()
-                        val labelsList = call.argument<List<String>>("labelsList").orEmpty()
 
-                        Thread {
-                            try {
-                                val engine = soundService?.getRuntimeEngine() ?: run {
-                                    if (modelPath == null || classLabelsPath == null || preprocessingConfigPath == null ||
-                                        thresholdDefaultsPath == null || prototypeStorePath == null) {
-                                        throw Exception("Engine files not provided and service is not running.")
-                                    }
-                                    initializeTempEngine(
-                                        backbone, modelPath, classLabelsPath, preprocessingConfigPath,
-                                        thresholdDefaultsPath, prototypeStorePath
-                                    )
-                                }
-                                val report = runBenchmark(engine, samplesList, labelsList)
-                                mainHandler.post {
-                                    result.success(report)
-                                }
-                            } catch (e: java.lang.Exception) {
-                                mainHandler.post {
-                                    result.error("benchmark_failed", e.message ?: "Benchmark execution failed.", null)
-                                }
-                            }
-                        }.start()
-                    }
 
                     else -> result.notImplemented()
                 }
@@ -690,118 +658,5 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun runBenchmark(
-        engine: com.soundpulse.runtime.RuntimeEngine,
-        samplesList: List<List<Number>>,
-        labelsList: List<String>
-    ): Map<String, Any> {
-        val overallLatencies = mutableListOf<Double>()
-        val inferenceLatencies = mutableListOf<Double>()
-        val predictions = mutableListOf<Map<String, Any?>>()
-
-        val runtime = Runtime.getRuntime()
-        runtime.gc()
-        val memBefore = runtime.totalMemory() - runtime.freeMemory()
-
-        val cpuStart = android.os.SystemClock.currentThreadTimeMillis()
-
-        if (samplesList.isNotEmpty()) {
-            val warmUpSamples = FloatArray(samplesList[0].size) { index -> samplesList[0][index].toFloat() }
-            for (i in 0 until 5) {
-                engine.inferWindow(warmUpSamples)
-            }
-        }
-
-        for (i in samplesList.indices) {
-            val rawSamples = samplesList[i]
-            val samples = FloatArray(rawSamples.size) { index -> rawSamples[index].toFloat() }
-            val trueLabel = labelsList.getOrElse(i) { "unknown" }
-
-            val startOverall = System.nanoTime()
-            val inferenceResult = engine.inferWindow(samples)
-            val endOverall = System.nanoTime()
-            val overallMs = (endOverall - startOverall) / 1_000_000.0
-            overallLatencies.add(overallMs)
-
-            val startInference = System.nanoTime()
-            val embedding = engine.extractEmbedding(samples)
-            val endInference = System.nanoTime()
-            val inferenceMs = (endInference - startInference) / 1_000_000.0
-            inferenceLatencies.add(inferenceMs)
-
-            predictions.add(mapOf(
-                "true_label" to trueLabel,
-                "predicted_label" to inferenceResult.label,
-                "distance" to inferenceResult.distance.toDouble(),
-                "confidence" to inferenceResult.confidence.toDouble(),
-                "confidence_tier" to inferenceResult.confidenceTier,
-                "is_unknown" to inferenceResult.flags.isUnknown,
-                "is_background" to inferenceResult.flags.isBackground,
-                "speech_pitch_required" to inferenceResult.flags.speechPitchRequired,
-                "f0_hz" to inferenceResult.speechPitch?.f0Hz?.toDouble(),
-                "pitch_bucket" to inferenceResult.speechPitch?.bucket
-            ))
-        }
-
-        val cpuEnd = android.os.SystemClock.currentThreadTimeMillis()
-        val cpuTimeMs = cpuEnd - cpuStart
-
-        runtime.gc()
-        val memAfter = runtime.totalMemory() - runtime.freeMemory()
-        val memoryUsedBytes = if (memAfter > memBefore) memAfter - memBefore else 0L
-
-        return mapOf(
-            "overall_latencies" to overallLatencies,
-            "inference_latencies" to inferenceLatencies,
-            "cpu_time_ms" to cpuTimeMs.toDouble(),
-            "memory_used_bytes" to memoryUsedBytes.toDouble(),
-            "predictions" to predictions
-        )
-    }
-
-    private fun initializeTempEngine(
-        backbone: String,
-        modelPath: String,
-        classLabelsPath: String,
-        preprocessingConfigPath: String,
-        thresholdDefaultsPath: String,
-        prototypeStorePath: String
-    ): com.soundpulse.runtime.RuntimeEngine {
-        val classFile = java.io.File(classLabelsPath)
-        val preprocessingFile = java.io.File(preprocessingConfigPath)
-        val thresholdFile = java.io.File(thresholdDefaultsPath)
-        val prototypeFile = java.io.File(prototypeStorePath)
-        val modelFile = java.io.File(modelPath)
-
-        if (!classFile.exists() || !preprocessingFile.exists() || !thresholdFile.exists() || !prototypeFile.exists()) {
-            throw Exception("Missing configuration files.")
-        }
-        if (!modelFile.exists()) {
-            throw Exception("Missing model file.")
-        }
-
-        val artifacts = com.soundpulse.runtime.RuntimeArtifactLoader.fromFiles(
-            classFile,
-            preprocessingFile,
-            thresholdFile,
-            prototypeFile
-        )
-        val interpreter = com.soundpulse.runtime.LiteRtModelLoader.loadInterpreter(modelFile)
-        val activeBackbone = if (backbone.lowercase() == "yamnet") {
-            com.soundpulse.runtime.RuntimeBackbone.YAMNET
-        } else {
-            com.soundpulse.runtime.RuntimeBackbone.TINY_CNN
-        }
-        val extractor = if (activeBackbone == com.soundpulse.runtime.RuntimeBackbone.YAMNET) {
-            com.soundpulse.runtime.LiteRtEmbeddingExtractor(interpreter, artifacts.preprocessing.yamnetEmbeddingDim)
-        } else {
-            com.soundpulse.runtime.TinyCnnEmbeddingExtractor(
-                interpreter,
-                artifacts.preprocessing,
-                artifacts.preprocessing.tinyCnnEmbeddingDim
-            )
-        }
-        return com.soundpulse.runtime.LiteRtRuntimeFactory.createFromArtifacts(artifacts, extractor)
-    }
 
 }

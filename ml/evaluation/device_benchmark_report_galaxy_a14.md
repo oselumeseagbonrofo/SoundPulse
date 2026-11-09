@@ -16,11 +16,11 @@ Based on the comprehensive hardware and ML predictive evaluation on the Samsung 
 | Metric | TinyCNN | YAMNet | Winner / Notes |
 | :--- | :---: | :---: | :--- |
 | **Model Storage Size** | 7.56 MB | 14.34 MB | **TinyCNN** (smaller footprint) |
-| **Accuracy (Full Test Split)** | 29.36% | 50.76% | **YAMNet** (+21.40% improvement) |
-| **Macro F1 (Full Test Split)** | 26.18% | 51.81% | **YAMNet** (+25.63% improvement) |
-| **Urgent Sound Miss Rate** | 62.98% | 60.10% | **YAMNet** (fewer missed alerts) |
-| **False Alarm Rate (FAR) - Overall** | 69.51% | 47.35% | **TinyCNN** (more conservative predictions) |
-| **False Alarm Rate (FAR) - Background** | 92.19% | 76.56% | **TinyCNN** |
+| **Accuracy (Full Test Split)** | 29.17% | 59.21% | **YAMNet** (+21.40% improvement) |
+| **Macro F1 (Full Test Split)** | 24.92% | 57.48% | **YAMNet** (+25.63% improvement) |
+| **Urgent Sound Miss Rate** | 62.50% | 46.00% | **YAMNet** (fewer missed alerts) |
+| **False Alarm Rate (FAR) - Overall** | 70.83% | 40.79% | **TinyCNN** (more conservative predictions) |
+| **False Alarm Rate (FAR) - Background** | 0.00% | 0.00% | **TinyCNN** |
 | **P50 Model Inference Latency** | 484.35 ms | 80.72 ms | **YAMNet** (faster inference) |
 | **P95 Model Inference Latency** | 490.99 ms | 82.27 ms | **YAMNet** |
 | **P50 Overall Loop Latency** | 489.23 ms | 82.27 ms | **YAMNet** (faster loop) |
@@ -33,11 +33,11 @@ Based on the comprehensive hardware and ML predictive evaluation on the Samsung 
 
 | Urgent Class | TinyCNN Recall | TinyCNN Miss Rate | YAMNet Recall | YAMNet Miss Rate |
 | :--- | :---: | :---: | :---: | :---: |
-| **fire alarm** | 3.12% | 96.88% | 29.69% | 70.31% |
-| **clock alarm** | 50.00% | 50.00% | 87.50% | 12.50% |
-| **doorbell** | 29.41% | 70.59% | 38.24% | 61.76% |
-| **door knock** | 65.62% | 34.38% | 25.00% | 75.00% |
-| **crying baby** | 50.00% | 50.00% | 73.68% | 26.32% |
+| **fire alarm** | 50.91% | 49.09% | 74.55% | 25.45% |
+| **clock alarm** | 25.00% | 75.00% | 100.00% | 0.00% |
+| **doorbell** | 23.53% | 76.47% | 44.12% | 55.88% |
+| **door knock** | 32.81% | 67.19% | 25.00% | 75.00% |
+| **crying baby** | 41.03% | 58.97% | 71.79% | 28.21% |
 
 > [!IMPORTANT]
 > YAMNet shows dramatically higher recall for critical alarms (clock_alarm: 87.50% vs 50.00%, crying_baby: 73.68% vs 50.00%, fire_alarm: 29.69% vs 3.12%). For life-safety scenarios, YAMNet's lower miss rate is the deciding factor.
@@ -46,13 +46,13 @@ Based on the comprehensive hardware and ML predictive evaluation on the Samsung 
 
 | Class | TinyCNN Recall | YAMNet Recall | Change |
 | :--- | :---: | :---: | :---: |
-| background | 7.81% | 23.44% | +15.62% |
-| clock alarm | 50.00% | 87.50% | +37.50% |
-| crying baby | 50.00% | 73.68% | +23.68% |
-| dog barking | 42.19% | 56.25% | +14.06% |
-| door knock | 65.62% | 25.00% | -40.62% |
-| door wood creaking | 18.75% | 46.88% | +28.12% |
-| doorbell | 29.41% | 38.24% | +8.82% |
-| fire alarm | 3.12% | 29.69% | +26.56% |
-| speech | 9.38% | 82.81% | +73.44% |
-| water running | 43.75% | 79.69% | +35.94% |
+| background | 0.00% | 0.00% | +0.00% |
+| clock alarm | 25.00% | 100.00% | +75.00% |
+| crying baby | 41.03% | 71.79% | +30.77% |
+| dog barking | 15.62% | 57.81% | +42.19% |
+| door knock | 32.81% | 25.00% | -7.81% |
+| door wood creaking | 15.62% | 29.69% | +14.06% |
+| doorbell | 23.53% | 44.12% | +20.59% |
+| fire alarm | 50.91% | 74.55% | +23.64% |
+| speech | 9.38% | 85.94% | +76.56% |
+| water running | 50.00% | 79.69% | +29.69% |

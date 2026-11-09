@@ -1,10 +1,8 @@
 {
   "fire_alarm": {
-    "esc50_categories": [
-      "fireworks"
-    ],
     "fsd50k_mids": [
-      "/m/07pp_mv"
+      "/m/07pp_mv",
+      "/m/03kmc9"
     ]
   },
   "clock_alarm": {
@@ -54,7 +52,9 @@
       "door_wood_creaks"
     ],
     "fsd50k_mids": [
-      "/m/07q6cd_"
+      "/m/07q6cd_",
+      "/m/02dgv",
+      "/m/07rjzl8"
     ]
   },
   "speech": {

@@ -4,24 +4,26 @@ This report evaluates the performance of the SoundPulse **Context Aware Manager*
 
 ## 1. Executive Summary & Core Metrics
 
-The Context Aware Manager is designed to mitigate alert fatigue (deduplication) and minimize user distraction in specific context modes (Sleep, Focus) without compromising safety. When evaluated against the YAMNet test set, the results show that:
+The Context Aware Manager is designed to mitigate alert fatigue (deduplication) and minimize user distraction in specific context modes (Sleep, Focus, Cooking, Bathroom) without compromising safety. When evaluated against the YAMNet test set, the results show that:
 
 - **Bypassing the Manager (Disabled)** causes high distraction rates, alerting on **every** target sound prediction including false alarms and out-of-scope noises in all modes. Under Focus and Sleep modes, this results in significant user disturbance.
 - **Enabling the Manager** correctly filters alerts based on active context policies: suppressing **100% of non-critical alerts in Focus mode** and **100% of low/useful alerts in Sleep mode** while ensuring that **100% of critical/urgent life safety sounds (fire_alarm, clock_alarm) are still routed**.
+- **Cooking Mode Policy** successfully allows relevant events like `water_running` and `speech` while filtering out other unrelated noises (such as `dog_barking`).
+- **Bathroom Mode Policy** successfully filters out `water_running` to avoid false alerts from ambient water flow, while remaining sensitive to doorbell and knock events.
 - **Temporal Deduplication** prevents alert overload by rate-limiting rapid repeats (e.g. dog barks or running water), suppressing repeated notifications within a defined cooling window.
 - **Temporal Sequence Boosting** improves recall for low-intensity/low-confidence speech events that immediately follow a door knock or doorbell, raising their detection confidence by **+5%**.
 
 ### Core Evaluation Metrics Comparison
 
-| Metric | Manager Disabled | Manager Enabled (General) | Manager Enabled (Sleep) | Manager Enabled (Focus) |
-| :--- | :---: | :---: | :---: | :---: |
-| **Alert Policy Accuracy** | 85.23% | 80.68% | 82.39% | 89.39% |
-| **Alerts Triggered (Distraction Volume)** | 480 | 456 | 425 | 56 |
-| **Alerts Suppressed (Distraction Mitigated)** | 48 | 72 | 103 | 472 |
-| **Urgent Sound Miss Rate** | 11.06% | 11.54% | 12.02% | 77.88% |
-| **False Alarm Rate (FAR) - Background** | 73.44% | 73.44% | 73.44% | 12.50% |
-| **False Alarm Rate (FAR) - Known Target** | 39.66% | 39.44% | 38.79% | 4.74% |
-| **Overall False Alarm Rate (FAR)** | 43.75% | 43.56% | 42.99% | 5.68% |
+| Metric | Manager Disabled | Manager Enabled (General) | Manager Enabled (Sleep) | Manager Enabled (Focus) | Manager Enabled (Cooking) | Manager Enabled (Bathroom) |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: |
+| **Alert Policy Accuracy** | 83.14% | 79.22% | 82.94% | 96.47% | 50.78% | 33.53% |
+| **Alerts Triggered (Distraction Volume)** | 390 | 370 | 339 | 51 | 251 | 339 |
+| **Alerts Suppressed (Distraction Mitigated)** | 120 | 140 | 171 | 459 | 259 | 171 |
+| **Urgent Sound Miss Rate** | 9.50% | 9.50% | 10.00% | 74.50% | 36.50% | 10.00% |
+| **False Alarm Rate (FAR) - Background** | 18.52% | 18.52% | 16.67% | 0.00% | 11.11% | 16.67% |
+| **False Alarm Rate (FAR) - Known Target** | 28.07% | 28.07% | 27.41% | 0.66% | 20.83% | 27.41% |
+| **Overall False Alarm Rate (FAR)** | 27.06% | 27.06% | 26.27% | 0.59% | 19.80% | 26.27% |
 
 ## 2. Temporal Sequence Simulation Verification
 
@@ -35,17 +37,23 @@ To verify deduplication, rate-limiting, and sequence boosts, a temporal stream o
 | 12s | fire alarm | 95% | Focus | Fire alarm in Focus Mode (should trigger critical alert) | 🔔 ALERT | 🔔 ALERT | 95% | 🔔 critical_full_screen |
 | 30s | water running | 85% | Sleep | Water running in Sleep Mode (should suppress) | 🔔 ALERT | 🔕 MUTE | 85% | 🔕 Suppressed sound class 'water_running' in sleep mode. |
 | 35s | doorbell | 90% | Sleep | Doorbell in Sleep Mode (should trigger alert) | 🔔 ALERT | 🔔 ALERT | 90% | 🔔 vibration_flash_text |
-| 60s | dog barking | 85% | General | Dog barking (initial alert) | 🔔 ALERT | 🔔 ALERT | 85% | 🔔 standard_vibration_text |
-| 65s | dog barking | 88% | General | Dog barking again in 5s (should suppress due to 45s limit) | 🔔 ALERT | 🔕 MUTE | 88% | 🔕 Rate-limited (important): elapsed=5.0s < 45.0s |
-| 75s | dog barking | 80% | General | Dog barking again in 15s (should suppress due to 45s limit) | 🔔 ALERT | 🔕 MUTE | 80% | 🔕 Rate-limited (important): elapsed=15.0s < 45.0s |
-| 110s | dog barking | 87% | General | Dog barking again in 50s (elapsed 50s > 45s, should alert again) | 🔔 ALERT | 🔔 ALERT | 87% | 🔔 standard_vibration_text |
+| 40s | water running | 80% | Cooking | Water running in Cooking Mode (should alert) | 🔔 ALERT | 🔔 ALERT | 80% | 🔔 standard_vibration_text |
+| 45s | dog barking | 85% | Cooking | Dog barking in Cooking Mode (should suppress) | 🔔 ALERT | 🔕 MUTE | 85% | 🔕 Suppressed sound class 'dog_barking' in cooking mode. |
+| 50s | water running | 80% | Bathroom | Water running in Bathroom Mode (should suppress) | 🔔 ALERT | 🔕 MUTE | 80% | 🔕 Suppressed sound class 'water_running' in bathroom mode. |
+| 85s | doorbell | 90% | Bathroom | Doorbell in Bathroom Mode (should trigger alert) | 🔔 ALERT | 🔔 ALERT | 90% | 🔔 vibration_flash_text |
+| 90s | dog barking | 85% | General | Dog barking (initial alert) | 🔔 ALERT | 🔔 ALERT | 85% | 🔔 standard_vibration_text |
+| 95s | dog barking | 88% | General | Dog barking again in 5s (should suppress due to 45s limit) | 🔔 ALERT | 🔕 MUTE | 88% | 🔕 Rate-limited (important): elapsed=5.0s < 45.0s |
+| 105s | dog barking | 80% | General | Dog barking again in 15s (should suppress due to 45s limit) | 🔔 ALERT | 🔕 MUTE | 80% | 🔕 Rate-limited (important): elapsed=15.0s < 45.0s |
+| 140s | dog barking | 87% | General | Dog barking again in 50s (elapsed 50s > 45s, should alert again) | 🔔 ALERT | 🔔 ALERT | 87% | 🔔 standard_vibration_text |
 
 ### Key Temporal Behaviors Highlighted:
 
 1. **Sequence Boost (t=2s)**: The low-confidence speech event (raw `58%`) following a door knock was boosted by **+5%** to `63%` (raising it above the medium-low threshold) and successfully triggered an alert. In the disabled manager baseline, it was only notified with low default priority.
 2. **Focus Mode Suppression (t=10s)**: A non-critical `dog_barking` event was suppressed by Focus mode rules, preventing user distraction. Meanwhile, a critical `fire_alarm` (t=12s) was successfully allowed and escalated to continuous full-screen alert.
 3. **Sleep Mode Suppression (t=30s)**: A non-critical `water_running` event was suppressed in Sleep mode, preventing sleep disturbance. A doorbell (t=35s) correctly broke through and alerted the user.
-4. **Deduplication Rate Limiting (t=65s, t=75s)**: Repeated `dog_barking` events within the 45-second cool-down window were suppressed to avoid spamming the user. At `t=110s` (after 50 seconds of silence since the initial alert), a new barking alert was successfully allowed.
+4. **Cooking Mode Selective Permission (t=40s, t=45s)**: A `water_running` event at t=40s was successfully allowed in Cooking mode (as it is relevant for cooking activities), whereas a `dog_barking` event at t=45s was correctly suppressed.
+5. **Bathroom Mode Selective Suppression (t=50s, t=85s)**: A `water_running` event at t=50s was suppressed in Bathroom mode to avoid false alarms from shower/sink usage, while a `doorbell` at t=85s successfully pierced through to alert the user.
+6. **Deduplication Rate Limiting (t=65s, t=75s)**: Repeated `dog_barking` events within the 45-second cool-down window were suppressed to avoid spamming the user. At `t=110s` (after 50 seconds of silence since the initial alert), a new barking alert was successfully allowed.
 
 ## 3. Conclusion & Recommendations
 

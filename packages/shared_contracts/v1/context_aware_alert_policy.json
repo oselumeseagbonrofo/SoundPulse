@@ -5,7 +5,7 @@
   "source_basis": {
     "notes": [
       "Sound classes, alert channels, context modes, and priority rules are informed by formative user research with Deaf and Hard-of-Hearing users in Nigeria.",
-      "The policy is designed to reduce notification overload while preserving strong alerts for safety-critical sounds.",
+      "The policy is designed to reduce notification overload while preserving strong alerts for safety-critical sounds."
     ],
     "design_rationale_summary": {
       "primary_alert_channels": [
