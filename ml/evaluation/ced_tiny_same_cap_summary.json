@@ -1,0 +1,33 @@
+{
+  "model_name": "ced_tiny",
+  "display_name": "CED-Tiny",
+  "protocol": "shared_prototype_eval_same_cap",
+  "shared_caps": {
+    "train": 128,
+    "validation": 64,
+    "test": 64
+  },
+  "test_support": 510,
+  "aggregate_metrics": {
+    "accuracy": 0.8157,
+    "macro_precision": 0.8098,
+    "macro_recall": 0.8331,
+    "macro_f1": 0.8107,
+    "weighted_precision": 0.8337,
+    "weighted_recall": 0.8157,
+    "weighted_f1": 0.8168
+  },
+  "per_class_recall": {
+    "fire_alarm": 0.8,
+    "clock_alarm": 1.0,
+    "door_knock": 0.875,
+    "doorbell": 0.7647,
+    "crying_baby": 0.8718,
+    "water_running": 0.9062,
+    "dog_barking": 0.75,
+    "door_wood_creaking": 0.7656,
+    "speech": 0.6719,
+    "background": 0.9259
+  },
+  "predictions_path": "ml\\evaluation\\ced_tiny_same_cap_predictions.csv"
+}

@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import json
+import sqlite3
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 import librosa
 import numpy as np
@@ -19,6 +20,14 @@ SRC_ROOT = ML_ROOT / "src"
 if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
+from soundpulse_ml.backbones import (
+    extract_ced_tiny_embedding,
+    extract_efficientat_mn10_embedding,
+    extract_panns_mobilenetv1_embedding,
+    load_ced_tiny_model,
+    load_efficientat_mn10_model,
+    load_panns_mobilenetv1_model,
+)
 from soundpulse_ml.datasets import load_dataset_manifest, manifest_to_dataframe
 
 
@@ -32,6 +41,13 @@ COMMON_CAPS = {"train": 128, "validation": 64, "test": 64}
 IMAGE_SIZE = (96, 101)
 RANDOM_SEED = 42
 
+MODEL_DISPLAY_NAMES = {
+    "tinycnn": "TinyCNN",
+    "yamnet": "YAMNet",
+    "efficientat_mn10": "EfficientAT (mn10)",
+    "panns_mobilenetv1": "PANNs MobileNetV1",
+    "ced_tiny": "CED-Tiny",
+}
 
 with (CONTRACTS_DIR / "class_labels.json").open("r", encoding="utf-8") as handle:
     CLASS_CONTRACT = json.load(handle)
@@ -70,30 +86,85 @@ def cap_examples_per_class(frame: pd.DataFrame, split_name: str, seed: int = RAN
             sampled_groups.append(class_frame)
     return pd.concat(sampled_groups, ignore_index=True)
 
+
 def remap_audio_path(relative_path: str, external_root: Path | None) -> Path:
     if external_root is None:
         return (PROJECT_ROOT / relative_path).resolve()
-    
+
     parts = Path(relative_path).parts
-    # Strip everything up to and including 'raw' if present:
-    # 'ml/data/raw/esc_50_dataset/...' -> 'esc_50_dataset/...'
     if "raw" in parts:
         sub_path = Path(*parts[parts.index("raw") + 1 :])
     else:
         sub_path = Path(relative_path)
-        
+
     return (external_root / sub_path).resolve()
+
+
+def _build_drivefs_cache_map() -> dict[str, str]:
+    drivefs_root = Path.home() / "AppData" / "Local" / "Google" / "DriveFS"
+    if not drivefs_root.exists():
+        return {}
+
+    filename_to_cache_path: dict[str, str] = {}
+    for db_path in drivefs_root.glob("*/metadata_sqlite_db"):
+        cache_dir = db_path.parent / "content_cache"
+        if not cache_dir.exists():
+            continue
+        cid_to_file = {p.name: str(p) for p in cache_dir.rglob("*") if p.is_file()}
+        if not cid_to_file:
+            continue
+        try:
+            conn = sqlite3.connect(str(db_path))
+            conn.text_factory = bytes
+            cursor = conn.cursor()
+            cursor.execute("SELECT local_title, proto FROM items WHERE is_folder = 0")
+            for raw_title, proto in cursor.fetchall():
+                if not raw_title or not proto:
+                    continue
+                title = raw_title.decode("utf-8", errors="ignore")
+                if not title.endswith(".wav"):
+                    continue
+                idx = proto.find(b"content-entry")
+                if idx == -1:
+                    continue
+                pos = idx + 15
+                val = 0
+                shift = 0
+                while pos < len(proto):
+                    byte = proto[pos]
+                    val |= (byte & 0x7F) << shift
+                    pos += 1
+                    if not (byte & 0x80):
+                        break
+                    shift += 7
+                cid_str = str(val)
+                if cid_str in cid_to_file:
+                    filename_to_cache_path[title] = cid_to_file[cid_str]
+            conn.close()
+        except Exception:
+            continue
+    return filename_to_cache_path
+
 
 def load_capped_manifest_frame(manifest_path: Path, audio_dir: Path | None = None) -> pd.DataFrame:
     manifest = load_dataset_manifest(manifest_path)
     manifest_df = manifest_to_dataframe(manifest)
-    
+
     if audio_dir is not None:
         manifest_df["audio_path"] = manifest_df["relative_path"].map(
             lambda rel: str(remap_audio_path(rel, audio_dir))
         )
-        
-    manifest_df = manifest_df[manifest_df["audio_path"].map(lambda value: Path(value).exists())].reset_index(drop=True)
+
+    existing_mask = manifest_df["audio_path"].map(lambda value: Path(value).exists())
+    if not existing_mask.any():
+        cache_map = _build_drivefs_cache_map()
+        if cache_map:
+            manifest_df["audio_path"] = manifest_df["relative_path"].map(
+                lambda rel: cache_map.get(Path(rel).name, str(remap_audio_path(rel, audio_dir)))
+            )
+            existing_mask = manifest_df["audio_path"].map(lambda value: Path(value).exists())
+
+    manifest_df = manifest_df[existing_mask].reset_index(drop=True)
     if manifest_df.empty:
         raise FileNotFoundError(
             f"No existing audio files found on disk for manifest: {manifest_path}. "
@@ -289,7 +360,11 @@ def compute_metrics(true_labels: list[str], predicted_labels: list[str]) -> dict
     return metrics
 
 
-def evaluate_backbone(name: str, frame: pd.DataFrame, extractor) -> tuple[pd.DataFrame, dict[str, Any]]:
+def evaluate_backbone(
+    name: str,
+    frame: pd.DataFrame,
+    extractor: Callable[[str], np.ndarray],
+) -> tuple[pd.DataFrame, dict[str, Any]]:
     eval_frame = frame[frame["split"].isin(["train", "test"])].reset_index(drop=True)
     embedding_rows = []
     for row in eval_frame.to_dict(orient="records"):
@@ -324,6 +399,7 @@ def evaluate_backbone(name: str, frame: pd.DataFrame, extractor) -> tuple[pd.Dat
     )
     summary = {
         "model_name": name,
+        "display_name": MODEL_DISPLAY_NAMES.get(name, name),
         "protocol": "shared_prototype_eval_same_cap",
         "shared_caps": COMMON_CAPS,
         "test_support": int(len(predictions_df)),
@@ -336,55 +412,114 @@ def evaluate_backbone(name: str, frame: pd.DataFrame, extractor) -> tuple[pd.Dat
     return predictions_df, summary
 
 
-def write_markdown_report(tinycnn_summary: dict[str, Any], yamnet_summary: dict[str, Any], output_path: Path) -> None:
-    tiny = tinycnn_summary["aggregate_metrics"]
-    yam = yamnet_summary["aggregate_metrics"]
+def write_markdown_report(summaries: dict[str, dict[str, Any]], output_path: Path) -> None:
+    model_keys = list(summaries.keys())
+    headers = [MODEL_DISPLAY_NAMES.get(k, k) for k in model_keys]
+    first_summary = summaries[model_keys[0]]
+
+    metric_rows = [
+        ("Accuracy", "accuracy"),
+        ("Macro precision", "macro_precision"),
+        ("Macro recall", "macro_recall"),
+        ("Macro F1", "macro_f1"),
+        ("Weighted precision", "weighted_precision"),
+        ("Weighted recall", "weighted_recall"),
+        ("Weighted F1", "weighted_f1"),
+    ]
+
     lines = [
         "# Same-Cap Backbone Comparison",
         "",
         "## Protocol",
         "",
-        "Both backbones were re-evaluated with prototype classification on the same capped manifest protocol.",
+        "All 5 backbones were evaluated with prototype classification on the same capped manifest protocol.",
         "",
         f"- Shared caps: train={COMMON_CAPS['train']}, validation={COMMON_CAPS['validation']}, test={COMMON_CAPS['test']}",
-        f"- Test support per model: {tinycnn_summary['test_support']}",
+        f"- Test support per model: {first_summary['test_support']}",
         "- Scoring method: nearest-prototype inference using L2-normalized train-split centroids",
         "",
         "## Aggregate comparison",
         "",
-        "| Metric | TinyCNN | YAMNet | Delta |",
-        "| --- | ---: | ---: | ---: |",
-        f"| Accuracy | {tiny['accuracy']:.4f} | {yam['accuracy']:.4f} | {yam['accuracy'] - tiny['accuracy']:+.4f} |",
-        f"| Macro precision | {tiny['macro_precision']:.4f} | {yam['macro_precision']:.4f} | {yam['macro_precision'] - tiny['macro_precision']:+.4f} |",
-        f"| Macro recall | {tiny['macro_recall']:.4f} | {yam['macro_recall']:.4f} | {yam['macro_recall'] - tiny['macro_recall']:+.4f} |",
-        f"| Macro F1 | {tiny['macro_f1']:.4f} | {yam['macro_f1']:.4f} | {yam['macro_f1'] - tiny['macro_f1']:+.4f} |",
-        f"| Weighted precision | {tiny['weighted_precision']:.4f} | {yam['weighted_precision']:.4f} | {yam['weighted_precision'] - tiny['weighted_precision']:+.4f} |",
-        f"| Weighted recall | {tiny['weighted_recall']:.4f} | {yam['weighted_recall']:.4f} | {yam['weighted_recall'] - tiny['weighted_recall']:+.4f} |",
-        f"| Weighted F1 | {tiny['weighted_f1']:.4f} | {yam['weighted_f1']:.4f} | {yam['weighted_f1'] - tiny['weighted_f1']:+.4f} |",
-        "",
-        "## Per-class recall",
-        "",
-        "| Class | TinyCNN | YAMNet | Delta |",
-        "| --- | ---: | ---: | ---: |",
+        "| Metric | " + " | ".join(headers) + " | Best Model |",
+        "| --- | " + " | ".join(["---:"] * len(headers)) + " | --- |",
     ]
 
-    for class_slug in CLASS_ORDER:
-        tiny_recall = tinycnn_summary["per_class_recall"][class_slug]
-        yam_recall = yamnet_summary["per_class_recall"][class_slug]
-        lines.append(f"| {class_slug} | {tiny_recall:.4f} | {yam_recall:.4f} | {yam_recall - tiny_recall:+.4f} |")
+    for label, metric_key in metric_rows:
+        values = [summaries[k]["aggregate_metrics"][metric_key] for k in model_keys]
+        best_val = max(values)
+        best_idx = values.index(best_val)
+        formatted_vals = [
+            f"**{val:.4f}**" if val == best_val else f"{val:.4f}"
+            for val in values
+        ]
+        lines.append(f"| {label} | " + " | ".join(formatted_vals) + f" | {headers[best_idx]} |")
 
-    winner = "YAMNet" if yam["macro_f1"] > tiny["macro_f1"] else "TinyCNN"
+    lines.extend(
+        [
+            "",
+            "## Per-class recall",
+            "",
+            "| Class | " + " | ".join(headers) + " | Best Model |",
+            "| --- | " + " | ".join(["---:"] * len(headers)) + " | --- |",
+        ]
+    )
+
+    for class_slug in CLASS_ORDER:
+        recalls = [summaries[k]["per_class_recall"][class_slug] for k in model_keys]
+        best_rec = max(recalls)
+        best_models = [headers[i] for i, r in enumerate(recalls) if r == best_rec]
+        formatted_recs = [
+            f"**{r:.4f}**" if r == best_rec else f"{r:.4f}"
+            for r in recalls
+        ]
+        lines.append(
+            f"| {class_slug} | " + " | ".join(formatted_recs) + f" | {', '.join(best_models)} |"
+        )
+
+    ranked_keys = sorted(
+        model_keys,
+        key=lambda k: summaries[k]["aggregate_metrics"]["macro_f1"],
+        reverse=True,
+    )
+    winner_key = ranked_keys[0]
+    winner_name = MODEL_DISPLAY_NAMES.get(winner_key, winner_key)
+    winner_f1 = summaries[winner_key]["aggregate_metrics"]["macro_f1"]
+
+    lines.extend(
+        [
+            "",
+            "## Leaderboard by Macro F1",
+            "",
+            "| Rank | Backbone | Embedding Dim | Macro F1 | Accuracy | Macro Recall |",
+            "| ---: | --- | ---: | ---: | ---: | ---: |",
+        ]
+    )
+    emb_dims = {
+        "tinycnn": TINYCNN_EMBEDDING_DIM,
+        "yamnet": YAMNET_EMBEDDING_DIM,
+        "efficientat_mn10": 960,
+        "panns_mobilenetv1": 1024,
+        "ced_tiny": 192,
+    }
+    for rank, k in enumerate(ranked_keys, start=1):
+        m = summaries[k]["aggregate_metrics"]
+        disp = MODEL_DISPLAY_NAMES.get(k, k)
+        lines.append(
+            f"| {rank} | {disp} | {emb_dims.get(k, '-')} | {m['macro_f1']:.4f} | {m['accuracy']:.4f} | {m['macro_recall']:.4f} |"
+        )
+
     lines.extend(
         [
             "",
             "## Conclusion",
             "",
-            f"{winner} remains the stronger backbone under the stricter same-cap prototype-evaluation protocol.",
+            f"**{winner_name}** achieves the highest Macro F1 (`{winner_f1:.4f}`) under the same-cap prototype-evaluation protocol.",
             "",
-            f"- TinyCNN predictions: {tinycnn_summary['predictions_path']}",
-            f"- YAMNet predictions: {yamnet_summary['predictions_path']}",
         ]
     )
+    for k in model_keys:
+        disp = MODEL_DISPLAY_NAMES.get(k, k)
+        lines.append(f"- {disp} predictions: `{summaries[k]['predictions_path']}`")
 
     output_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
@@ -402,48 +537,91 @@ def main() -> None:
     parser.add_argument(
         "--audio-dir",
         type=Path,
-        default=Path("G:/My Drive/SoundPulse/data/raw"),  # or Path("D:/your/external/path")
-        help="Optional external root directory where raw audio datasets are stored."
+        default=Path("G:/My Drive/SoundPulse/data/raw"),
+        help="Optional external root directory where raw audio datasets are stored.",
     )
     args, _ = parser.parse_known_args()
 
     EVALUATION_DIR.mkdir(parents=True, exist_ok=True)
     manifest_frame = load_capped_manifest_frame(args.manifest, audio_dir=args.audio_dir)
 
+    summaries: dict[str, dict[str, Any]] = {}
+
+    print("[1/5] Evaluating TinyCNN...", flush=True)
     tinycnn_model = load_tinycnn_embedding_model()
-    _, tinycnn_summary = evaluate_backbone(
+    _, summaries["tinycnn"] = evaluate_backbone(
         "tinycnn",
         manifest_frame,
         lambda audio_path: extract_tinycnn_embedding(tinycnn_model, audio_path),
     )
 
+    print("[2/5] Evaluating YAMNet...", flush=True)
     yamnet_artifact = find_yamnet_artifact()
     yamnet_model = load_yamnet_model(yamnet_artifact)
-    _, yamnet_summary = evaluate_backbone(
+    _, summaries["yamnet"] = evaluate_backbone(
         "yamnet",
         manifest_frame,
         lambda audio_path: extract_yamnet_embedding(yamnet_model, audio_path),
     )
 
-    comparison_summary = {
+    print("[3/5] Evaluating EfficientAT (mn10)...", flush=True)
+    efficientat_model = load_efficientat_mn10_model()
+    _, summaries["efficientat_mn10"] = evaluate_backbone(
+        "efficientat_mn10",
+        manifest_frame,
+        lambda audio_path: extract_efficientat_mn10_embedding(efficientat_model, audio_path),
+    )
+
+    print("[4/5] Evaluating PANNs MobileNetV1...", flush=True)
+    panns_model = load_panns_mobilenetv1_model()
+    _, summaries["panns_mobilenetv1"] = evaluate_backbone(
+        "panns_mobilenetv1",
+        manifest_frame,
+        lambda audio_path: extract_panns_mobilenetv1_embedding(panns_model, audio_path),
+    )
+
+    print("[5/5] Evaluating CED-Tiny...", flush=True)
+    ced_model = load_ced_tiny_model()
+    _, summaries["ced_tiny"] = evaluate_backbone(
+        "ced_tiny",
+        manifest_frame,
+        lambda audio_path: extract_ced_tiny_embedding(ced_model, audio_path),
+    )
+
+    ranked_keys = sorted(
+        summaries.keys(),
+        key=lambda k: summaries[k]["aggregate_metrics"]["macro_f1"],
+        reverse=True,
+    )
+    winner_key = ranked_keys[0]
+    winner_display = MODEL_DISPLAY_NAMES.get(winner_key, winner_key)
+
+    comparison_summary: dict[str, Any] = {
         "protocol": "shared_prototype_eval_same_cap",
         "shared_caps": COMMON_CAPS,
-        "tinycnn": tinycnn_summary,
-        "yamnet": yamnet_summary,
-        "winner_by_macro_f1": "YAMNet"
-        if yamnet_summary["aggregate_metrics"]["macro_f1"] > tinycnn_summary["aggregate_metrics"]["macro_f1"]
-        else "TinyCNN",
+        **summaries,
+        "ranking_by_macro_f1": [
+            {
+                "rank": idx + 1,
+                "model_name": k,
+                "display_name": MODEL_DISPLAY_NAMES.get(k, k),
+                "macro_f1": summaries[k]["aggregate_metrics"]["macro_f1"],
+                "accuracy": summaries[k]["aggregate_metrics"]["accuracy"],
+            }
+            for idx, k in enumerate(ranked_keys)
+        ],
+        "winner_by_macro_f1": winner_display,
     }
 
-    tinycnn_summary_path = EVALUATION_DIR / "tinycnn_same_cap_summary.json"
-    yamnet_summary_path = EVALUATION_DIR / "yamnet_same_cap_summary.json"
+    for model_key, model_summary in summaries.items():
+        summary_path = EVALUATION_DIR / f"{model_key}_same_cap_summary.json"
+        summary_path.write_text(json.dumps(model_summary, indent=2), encoding="utf-8")
+
     comparison_summary_path = EVALUATION_DIR / "same_cap_model_comparison_summary.json"
     comparison_report_path = EVALUATION_DIR / "same_cap_model_comparison_report.md"
 
-    tinycnn_summary_path.write_text(json.dumps(tinycnn_summary, indent=2), encoding="utf-8")
-    yamnet_summary_path.write_text(json.dumps(yamnet_summary, indent=2), encoding="utf-8")
     comparison_summary_path.write_text(json.dumps(comparison_summary, indent=2), encoding="utf-8")
-    write_markdown_report(tinycnn_summary, yamnet_summary, comparison_report_path)
+    write_markdown_report(summaries, comparison_report_path)
 
     print(json.dumps(comparison_summary, indent=2))
 

@@ -1,5 +1,6 @@
 {
   "model_name": "yamnet",
+  "display_name": "YAMNet",
   "protocol": "shared_prototype_eval_same_cap",
   "shared_caps": {
     "train": 128,
