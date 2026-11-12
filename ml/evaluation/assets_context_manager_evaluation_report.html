@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Context Aware Manager Evaluation Summary</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 24px; background: #f5f7fb; color: #1d2433; }
+    h1, h2 { color: #15314b; }
+    .card { background: white; border-radius: 12px; padding: 20px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+    table { border-collapse: collapse; width: 100%; background: white; }
+    th, td { border: 1px solid #d9e1ee; padding: 10px 12px; text-align: left; }
+    th { background: #eaf1ff; }
+    .badge { display: inline-block; padding: 4px 8px; border-radius: 999px; background: #ebf7ef; color: #1d5e3a; font-size: 12px; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <h1>Context Aware Manager Evaluation Summary</h1>
+
+  <div class="card">
+    <h2>Core Evaluation Metrics Comparison</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Mode</th>
+          <th>Alert Policy Accuracy</th>
+          <th>Alerts Triggered</th>
+          <th>Alerts Suppressed</th>
+          <th>Critical Sound Miss Rate</th>
+          <th>Permitted Urgent Sound Miss Rate</th>
+          <th>Overall FAR</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>Manager Disabled (General Mode)</td><td>93.92%</td><td>433</td><td>77</td><td>1.59%</td><td>3.00%</td><td>13.14%</td></tr><tr><td>Manager Enabled (General Mode)</td><td>93.92%</td><td>433</td><td>77</td><td>1.59%</td><td>3.00%</td><td>13.14%</td></tr><tr><td>Manager Enabled (Sleep Mode)</td><td>87.45%</td><td>330</td><td>180</td><td>4.76%</td><td>6.00%</td><td>9.22%</td></tr><tr><td>Manager Enabled (Focus Mode)</td><td>95.49%</td><td>66</td><td>444</td><td>15.87%</td><td>15.87%</td><td>2.75%</td></tr><tr><td>Manager Enabled (Cooking Mode)</td><td>90.59%</td><td>287</td><td>223</td><td>7.94%</td><td>8.70%</td><td>10.20%</td></tr><tr><td>Manager Enabled (Bathroom Mode)</td><td>87.65%</td><td>331</td><td>179</td><td>4.76%</td><td>6.00%</td><td>9.22%</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>Removed Alert Breakdown by Mode</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Mode</th>
+          <th>Total Removed</th>
+          <th>Correctly Removed</th>
+          <th>Incorrectly Removed</th>
+          <th>Incorrectly Removed (Urgent)</th>
+          <th>Incorrectly Removed (Non-Urgent)</th>
+          <th>Urgent Removed</th>
+          <th>Non-Urgent Removed</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>Manager Disabled (General Mode)</td><td>77</td><td>50</td><td>27</td><td>6</td><td>21</td><td>6</td><td>71</td></tr><tr><td>Manager Enabled (General Mode)</td><td>77</td><td>50</td><td>27</td><td>6</td><td>21</td><td>6</td><td>71</td></tr><tr><td>Manager Enabled (Sleep Mode)</td><td>180</td><td>117</td><td>63</td><td>12</td><td>51</td><td>12</td><td>168</td></tr><tr><td>Manager Enabled (Focus Mode)</td><td>444</td><td>434</td><td>10</td><td>10</td><td>0</td><td>143</td><td>301</td></tr><tr><td>Manager Enabled (Cooking Mode)</td><td>223</td><td>198</td><td>25</td><td>14</td><td>11</td><td>50</td><td>173</td></tr><tr><td>Manager Enabled (Bathroom Mode)</td><td>179</td><td>117</td><td>62</td><td>12</td><td>50</td><td>12</td><td>167</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="card">
+    <h2>Interpretation</h2>
+    <p><span class="badge">Correctly Removed</span> = the system suppressed a sound that should not have alerted in that mode.</p>
+    <p><span class="badge">Incorrectly Removed</span> = the system suppressed a sound that should have alerted, creating a missed alert.</p>
+    <p><span class="badge">Incorrectly Removed (Urgent)</span> = a missed urgent alert that was suppressed.</p>
+    <p><span class="badge">Incorrectly Removed (Non-Urgent)</span> = a missed non-urgent alert that was suppressed.</p>
+    <p><span class="badge">Urgent Removed</span> = all suppressed urgent sounds, regardless of whether the suppression was correct or incorrect.</p>
+    <p><span class="badge">Non-Urgent Removed</span> = all suppressed non-urgent sounds, regardless of whether the suppression was correct or incorrect.</p>
+  </div>
+</body>
+</html>

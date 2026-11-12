@@ -1,10 +1,10 @@
 # Context Aware Manager Evaluation Report
 
-This report evaluates the performance of the SoundPulse **Context Aware Manager** (with and without it enabled). It combines static evaluation on YAMNet test predictions over the full 510 test split clips with temporal sequence simulations to verify mode suppression, rate-limiting deduplication, and event-chain boosts.
+This report evaluates the performance of the SoundPulse **Context Aware Manager** (with and without it enabled). It combines static evaluation on CED-Tiny test predictions over the full 510 test split clips with temporal sequence simulations to verify mode suppression, rate-limiting deduplication, and event-chain boosts.
 
 ## 1. Executive Summary & Core Metrics
 
-The Context Aware Manager is designed to mitigate alert fatigue (deduplication) and minimize user distraction in specific context modes (Sleep, Focus, Cooking, Bathroom) without compromising safety. When evaluated against the YAMNet test set, the results show that:
+The Context Aware Manager is designed to mitigate alert fatigue (deduplication) and minimize user distraction in specific context modes (Sleep, Focus, Cooking, Bathroom) without compromising safety. When evaluated against the CED-Tiny test set, the results show that:
 
 - **Bypassing the Manager (Disabled)** causes high distraction rates, alerting on **every** accepted target sound prediction in all modes. Under Focus and Sleep modes, this results in significant user disturbance.
 - **Enabling the Manager** correctly filters alerts based on active context policies: suppressing **100% of non-critical alerts in Focus mode** and **100% of low/useful alerts in Sleep mode** while ensuring that **critical/urgent life safety sounds (`fire_alarm`, `clock_alarm`) are routed**.
@@ -17,14 +17,14 @@ The Context Aware Manager is designed to mitigate alert fatigue (deduplication) 
 
 | Metric | Manager Disabled | Manager Enabled (General) | Manager Enabled (Sleep) | Manager Enabled (Focus) | Manager Enabled (Cooking) | Manager Enabled (Bathroom) |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
-| **Alert Policy Accuracy** | 89.41% | 89.41% | 81.96% | 93.73% | 85.10% | 83.73% |
-| **Alerts Triggered (Distraction Volume)** | 422 | 422 | 318 | 63 | 265 | 331 |
-| **Alerts Suppressed (Distraction Mitigated)** | 88 | 88 | 192 | 447 | 245 | 179 |
-| **Critical Sound Miss Rate (`fire_alarm`, `clock_alarm`)** | 7.94% | 7.94% | 9.52% | 25.40% | 12.70% | 7.94% |
-| **Permitted Urgent Sound Miss Rate** | 6.50% | 6.50% | 11.00% | 25.40% | 14.29% | 8.50% |
-| **False Alarm Rate (FAR) - Background** | 18.52% | 18.52% | 11.11% | 0.00% | 7.41% | 14.81% |
-| **False Alarm Rate (FAR) - Known Target** | 18.42% | 18.42% | 14.04% | 3.73% | 12.06% | 15.79% |
-| **Overall False Alarm Rate (FAR)** | 18.43% | 18.43% | 13.73% | 3.33% | 11.57% | 15.69% |
+| **Alert Policy Accuracy** | 93.92% | 93.92% | 87.45% | 95.49% | 90.59% | 87.65% |
+| **Alerts Triggered (Distraction Volume)** | 433 | 433 | 330 | 66 | 287 | 331 |
+| **Alerts Suppressed (Distraction Mitigated)** | 77 | 77 | 180 | 444 | 223 | 179 |
+| **Critical Sound Miss Rate (`fire_alarm`, `clock_alarm`)** | 1.59% | 1.59% | 4.76% | 15.87% | 7.94% | 4.76% |
+| **Permitted Urgent Sound Miss Rate** | 3.00% | 3.00% | 6.00% | 15.87% | 8.70% | 6.00% |
+| **False Alarm Rate (FAR) - Background** | 7.41% | 7.41% | 0.00% | 0.00% | 7.41% | 0.00% |
+| **False Alarm Rate (FAR) - Known Target** | 13.82% | 13.82% | 10.31% | 3.07% | 10.53% | 10.31% |
+| **Overall False Alarm Rate (FAR)** | 13.14% | 13.14% | 9.22% | 2.75% | 10.20% | 9.22% |
 
 ## 1a. Removed Alert Breakdown by Mode
 
@@ -32,12 +32,12 @@ This section reports how many alerts were removed (suppressed or silent-logged) 
 
 | Mode | Total Removed | Correctly Removed | Incorrectly Removed | Incorrectly Removed (Urgent) | Incorrectly Removed (Non-Urgent) | Urgent Removed | Non-Urgent Removed |
 | :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| Manager Disabled (General Mode) | 88 | 44 | 44 | 13 | 31 | 13 | 75 |
-| Manager Enabled (General Mode) | 88 | 44 | 44 | 13 | 31 | 13 | 75 |
-| Manager Enabled (Sleep Mode) | 192 | 109 | 83 | 22 | 61 | 22 | 170 |
-| Manager Enabled (Focus Mode) | 447 | 431 | 16 | 16 | 0 | 150 | 297 |
-| Manager Enabled (Cooking Mode) | 245 | 195 | 50 | 23 | 27 | 60 | 185 |
-| Manager Enabled (Bathroom Mode) | 179 | 107 | 72 | 17 | 55 | 17 | 162 |
+| Manager Disabled (General Mode) | 77 | 50 | 27 | 6 | 21 | 6 | 71 |
+| Manager Enabled (General Mode) | 77 | 50 | 27 | 6 | 21 | 6 | 71 |
+| Manager Enabled (Sleep Mode) | 180 | 117 | 63 | 12 | 51 | 12 | 168 |
+| Manager Enabled (Focus Mode) | 444 | 434 | 10 | 10 | 0 | 143 | 301 |
+| Manager Enabled (Cooking Mode) | 223 | 198 | 25 | 14 | 11 | 50 | 173 |
+| Manager Enabled (Bathroom Mode) | 179 | 117 | 62 | 12 | 50 | 12 | 167 |
 
 ## 2. Temporal Sequence Simulation Verification
 

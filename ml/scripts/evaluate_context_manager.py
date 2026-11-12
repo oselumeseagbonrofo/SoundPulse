@@ -10,7 +10,7 @@ from sklearn.metrics import classification_report, accuracy_score, f1_score
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 ML_ROOT = PROJECT_ROOT / "ml"
 EVALUATION_DIR = ML_ROOT / "evaluation"
-YAMNET_CSV_PATH = EVALUATION_DIR / "yamnet_same_cap_predictions.csv"
+PREDICTIONS_CSV_PATH = EVALUATION_DIR / "ced_tiny_same_cap_predictions.csv"
 THRESHOLD_DEFAULTS_PATH = PROJECT_ROOT / "packages" / "shared_contracts" / "v1" / "threshold_defaults.json"
 OUTPUT_REPORT_PATH = EVALUATION_DIR / "context_manager_evaluation_report.md"
 ASSETS_OUTPUT_REPORT_PATH = EVALUATION_DIR / "assets_context_manager_evaluation_report.md"
@@ -255,11 +255,11 @@ def load_normalized_threshold_config():
     }
 
 def evaluate_on_test_set():
-    if not YAMNET_CSV_PATH.exists():
-        print(f"Error: YAMNet predictions file not found at {YAMNET_CSV_PATH}")
+    if not PREDICTIONS_CSV_PATH.exists():
+        print(f"Error: CED-Tiny predictions file not found at {PREDICTIONS_CSV_PATH}")
         return None
 
-    df = pd.read_csv(YAMNET_CSV_PATH)
+    df = pd.read_csv(PREDICTIONS_CSV_PATH)
     threshold_cfg = load_normalized_threshold_config()
     base_distance_threshold = float(threshold_cfg.get("distance_threshold", 0.85))
     medium_conf_floor = float(threshold_cfg.get("confidence_tiers", {}).get("medium", 0.60))
@@ -526,11 +526,11 @@ def generate_markdown_report(metrics, timeline):
     lines = [
         "# Context Aware Manager Evaluation Report",
         "",
-        f"This report evaluates the performance of the SoundPulse **Context Aware Manager** (with and without it enabled). It combines static evaluation on YAMNet test predictions over the full {total_clips} test split clips with temporal sequence simulations to verify mode suppression, rate-limiting deduplication, and event-chain boosts.",
+        f"This report evaluates the performance of the SoundPulse **Context Aware Manager** (with and without it enabled). It combines static evaluation on CED-Tiny test predictions over the full {total_clips} test split clips with temporal sequence simulations to verify mode suppression, rate-limiting deduplication, and event-chain boosts.",
         "",
         "## 1. Executive Summary & Core Metrics",
         "",
-        "The Context Aware Manager is designed to mitigate alert fatigue (deduplication) and minimize user distraction in specific context modes (Sleep, Focus, Cooking, Bathroom) without compromising safety. When evaluated against the YAMNet test set, the results show that:",
+        "The Context Aware Manager is designed to mitigate alert fatigue (deduplication) and minimize user distraction in specific context modes (Sleep, Focus, Cooking, Bathroom) without compromising safety. When evaluated against the CED-Tiny test set, the results show that:",
         "",
         "- **Bypassing the Manager (Disabled)** causes high distraction rates, alerting on **every** accepted target sound prediction in all modes. Under Focus and Sleep modes, this results in significant user disturbance.",
         "- **Enabling the Manager** correctly filters alerts based on active context policies: suppressing **100% of non-critical alerts in Focus mode** and **100% of low/useful alerts in Sleep mode** while ensuring that **critical/urgent life safety sounds (`fire_alarm`, `clock_alarm`) are routed**.",
